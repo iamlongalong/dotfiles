@@ -1,0 +1,103 @@
+" 基础设置
+set nocompatible
+syntax on
+set number
+set relativenumber
+set cursorline
+set ruler
+set showcmd
+set showmode
+set showmatch
+set mouse=a
+set encoding=utf-8
+set fileencoding=utf-8
+set termencoding=utf-8
+set autoindent
+set smartindent
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+set wrap
+set linebreak
+set scrolloff=5
+set sidescrolloff=5
+set laststatus=2
+set wildmenu
+set wildmode=longest:full,full
+set hidden
+set history=1000
+set backup
+set backupdir=~/.vim/backup//
+set directory=~/.vim/swap//
+set undofile
+set undodir=~/.vim/undo//
+
+" 创建必要的目录
+if !isdirectory($HOME.'/.vim/backup')
+    call mkdir($HOME.'/.vim/backup', 'p')
+endif
+if !isdirectory($HOME.'/.vim/swap')
+    call mkdir($HOME.'/.vim/swap', 'p')
+endif
+if !isdirectory($HOME.'/.vim/undo')
+    call mkdir($HOME.'/.vim/undo', 'p')
+endif
+
+" 插件管理
+call plug#begin('~/.vim/plugged')
+
+" 文件树
+Plug 'preservim/nerdtree'
+" Git 集成
+Plug 'tpope/vim-fugitive'
+" 状态栏
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+" 语法高亮增强
+Plug 'sheerun/vim-polyglot'
+" 模糊查找
+Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+Plug 'junegunn/fzf.vim'
+" 注释
+Plug 'tpope/vim-commentary'
+" 括号匹配
+Plug 'jiangmiao/auto-pairs'
+" 主题
+Plug 'morhetz/gruvbox'
+
+call plug#end()
+
+" 主题设置
+set background=dark
+colorscheme gruvbox
+
+" NERDTree 配置
+nnoremap <C-n> :NERDTreeToggle<CR>
+let NERDTreeShowHidden=1
+
+" FZF 配置
+nnoremap <C-p> :Files<CR>
+nnoremap <C-f> :Rg<CR>
+
+" Airline 配置
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#enabled = 1
+
+" 自定义快捷键
+let mapleader = ","
+" 保存
+nnoremap <leader>w :w<CR>
+" 退出
+nnoremap <leader>q :q<CR>
+" 取消高亮搜索
+nnoremap <leader><space> :nohlsearch<CR>
+" 分屏导航
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l 

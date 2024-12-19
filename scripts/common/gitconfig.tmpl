@@ -1,0 +1,37 @@
+[user]
+    name = {{ .git.name }}
+    email = {{ .git.email }}
+
+[core]
+    editor = vim
+    quotepath = false
+    pager = diff-so-fancy | less --tabs=4 -RFX
+
+[color]
+    ui = true
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = false
+
+[push]
+    default = current
+
+[alias]
+    a = add
+    ps = push
+    pl = pull
+    cim = commit -m
+    b = branch
+    co = checkout
+    d = diff
+    st = status
+    ci = commit
+    df = diff
+    dfc = diff --cached
+    lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+    last = log -1 HEAD
+    unstage = reset HEAD --
+    uncommit = reset --soft HEAD^ 
