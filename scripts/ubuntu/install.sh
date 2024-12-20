@@ -393,28 +393,62 @@ install_brew_tools() {
 # 安装 NVM
 install_nvm() {
     if [ ! -d "$HOME/.nvm" ]; then
-        log "INFO" "Installing NVM..."
-        if ! curl_with_timeout -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash; then
+        log "INFO" "Installing NVM using Homebrew..."
+        
+        # 使用 Homebrew 安装 nvm
+        if ! brew_as_user install nvm; then
             log "ERROR" "Failed to install NVM"
             return 1
         fi
+        
+        # 创建 nvm 目录
+        mkdir -p "$HOME/.nvm"
+        
+        # 添加 nvm 配置到 shell 配置文件
+        local nvm_config='
+# NVM configuration
+export NVM_DIR="$HOME/.nvm"
+[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"
+[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"'
+        
+        echo "$nvm_config" >> "$HOME/.bashrc"
+        echo "$nvm_config" >> "$HOME/.zshrc"
+        
+        # 立即加载 nvm
         export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"
+        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"
+        
+        # 配置 npm 淘宝镜像
+        if [ ! -f "$HOME/.npmrc" ]; then
+            echo "registry=https://registry.npmmirror.com" > "$HOME/.npmrc"
+        fi
         
         # 安装 Node.js LTS
-        if ! timeout $((CURL_TIMEOUT * 2)) nvm install --lts; then
+        log "INFO" "Installing Node.js LTS version..."
+        if ! nvm install --lts; then
             log "ERROR" "Failed to install Node.js LTS"
             return 1
         fi
-        nvm use --lts
+        
+        if ! nvm use --lts; then
+            log "ERROR" "Failed to use Node.js LTS"
+            return 1
+        fi
         
         # 安装全局包
-        if check_cmd_exists npm; then
-            npm install -g yarn pm2
+        if command -v npm >/dev/null 2>&1; then
+            log "INFO" "Installing global npm packages..."
+            npm install -g yarn pm2 --registry=https://registry.npmmirror.com
+        else
+            log "ERROR" "npm not found after Node.js installation"
+            return 1
         fi
     else
         log "INFO" "NVM is already installed, skipping..."
     fi
+    
+    return 0
 }
 
 # 安装 Go
