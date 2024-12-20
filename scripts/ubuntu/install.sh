@@ -128,13 +128,13 @@ update_system() {
     log "INFO" "Updating system..."
     
     # 更新软件源
-    if ! timeout $APT_TIMEOUT sudo apt update; then
+    if ! sudo apt update; then
         log "ERROR" "Failed to update package list"
         return 1
     fi
     
     # 升级系统
-    if ! timeout $APT_TIMEOUT sudo apt upgrade -y; then
+    if ! sudo apt upgrade -y; then
         log "ERROR" "Failed to upgrade system packages"
         return 1
     fi
@@ -521,7 +521,7 @@ install_docker() {
         
         # 安装 Docker
         log "INFO" "Installing Docker using apt..."
-        if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
+        if ! sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
@@ -612,13 +612,13 @@ install_vscode() {
         rm -f /tmp/packages.microsoft.gpg
         
         # 更新软件源
-        if ! timeout $APT_TIMEOUT sudo apt update; then
+        if ! sudo apt update; then
             log "ERROR" "Failed to update package list"
             return 1
         fi
         
         # 安装 VS Code
-        if ! timeout $APT_TIMEOUT sudo apt install -y code; then
+        if ! sudo apt install -y code; then
             log "ERROR" "Failed to install VS Code"
             return 1
         fi
@@ -631,7 +631,7 @@ install_vscode() {
 install_zsh() {
     if ! check_cmd_exists zsh; then
         log "INFO" "Installing Zsh..."
-        if ! timeout $APT_TIMEOUT sudo apt install -y zsh; then
+        if ! sudo apt install -y zsh; then
             log "ERROR" "Failed to install Zsh"
             return 1
         fi
