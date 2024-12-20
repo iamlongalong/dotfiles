@@ -38,7 +38,7 @@ get_normal_user() {
     # 获取第一个非 root 的用户常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
-        # 如果 who 命令没有结果，尝试从 /home 目录获取
+        # 如果 who 命令没有结��，尝试从 /home 目录获取
         user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
     echo "$user"
@@ -178,7 +178,7 @@ brew_as_user() {
         return 1
     fi
     
-    # 如果当前已经是目标用户，直接运行命令
+    # 如果当前已经是目���用户，直接运行命令
     if [ "$USER" = "$normal_user" ]; then
         /home/linuxbrew/.linuxbrew/bin/brew "$@"
         return $?
@@ -249,14 +249,31 @@ EOF
             return 1
         fi
         
+        # 临时禁用代理
+        local old_http_proxy="$http_proxy"
+        local old_https_proxy="$https_proxy"
+        unset http_proxy
+        unset https_proxy
+        
         # 安装依赖
         log "INFO" "Installing Linuxbrew dependencies..."
-        apt-get install -y build-essential procps curl file git gcc
+        if ! apt-get install -y build-essential procps curl file git gcc; then
+            log "ERROR" "Failed to install dependencies"
+            # 恢复代理设置
+            export http_proxy="$old_http_proxy"
+            export https_proxy="$old_https_proxy"
+            return 1
+        fi
+        
+        # 恢复代理设置
+        export http_proxy="$old_http_proxy"
+        export https_proxy="$old_https_proxy"
 
         # 创建临时脚本文件
-        local temp_script=$(mktemp)
+        local temp_script="/tmp/install_homebrew_$normal_user.sh"
         echo "$install_script" > "$temp_script"
-        chmod +x "$temp_script"
+        chmod 755 "$temp_script"
+        chown "$normal_user:$(id -gn $normal_user)" "$temp_script"
 
         # 以普通用户身份运行安装脚本
         log "INFO" "Installing Linuxbrew as user: $normal_user"
@@ -269,12 +286,28 @@ EOF
     else
         # 当前已经是普通用户，直接安装
         log "INFO" "Installing Linuxbrew dependencies..."
-        sudo apt-get install -y build-essential procps curl file git gcc
+        # 临时禁用代理
+        local old_http_proxy="$http_proxy"
+        local old_https_proxy="$https_proxy"
+        unset http_proxy
+        unset https_proxy
+        
+        if ! sudo apt-get install -y build-essential procps curl file git gcc; then
+            log "ERROR" "Failed to install dependencies"
+            # 恢复代理设置
+            export http_proxy="$old_http_proxy"
+            export https_proxy="$old_https_proxy"
+            return 1
+        fi
+        
+        # 恢复代理设置
+        export http_proxy="$old_http_proxy"
+        export https_proxy="$old_https_proxy"
         
         # 创建临时脚本文件并执行
-        local temp_script=$(mktemp)
+        local temp_script="/tmp/install_homebrew_$USER.sh"
         echo "$install_script" > "$temp_script"
-        chmod +x "$temp_script"
+        chmod 755 "$temp_script"
         
         log "INFO" "Installing Linuxbrew as user: $USER"
         if ! bash "$temp_script"; then
@@ -757,7 +790,7 @@ EOF
 
 # 主函数
 main() {
-    # 系统关键组件，失败需��退出
+    # 系统关键组件，失败需退出
     setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
