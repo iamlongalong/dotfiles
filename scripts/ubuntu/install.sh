@@ -81,7 +81,7 @@ install_basic_tools() {
     done
 }
 
-# 配置 proxychains4
+# 配�� proxychains4
 setup_proxychains() {
     if [ ! -f /etc/proxychains4.conf.bak ]; then
         log "INFO" "Configuring proxychains4..."
@@ -113,7 +113,8 @@ install_youtube_dl() {
         log "INFO" "Installing youtube-dl..."
         if ! curl_with_timeout -L https://yt-dl.org/downloads/latest/youtube-dl -o /tmp/youtube-dl; then
             log "ERROR" "Failed to download youtube-dl"
-            return 1
+            log "WARN" "Skipping youtube-dl installation"
+            return 0  # 返回 0 表示不中断整体安装流程
         fi
         sudo mv /tmp/youtube-dl /usr/local/bin/
         sudo chmod a+rx /usr/local/bin/youtube-dl
@@ -150,7 +151,7 @@ install_linuxbrew() {
         test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
         test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         
-        # 添加到 shell 配置文件
+        # 添加到 shell 配置��件
         if [ -f ~/.zshrc ]; then
             echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
         fi
@@ -384,24 +385,27 @@ setup_mkcert() {
 
 # 主函数
 main() {
-    setup_hostname
-    update_system
-    install_basic_tools
-    setup_proxychains
-    install_youtube_dl
-    install_linuxbrew
-    install_brew_tools
-    install_nvm
-    install_go
-    setup_python
-    install_docker
-    install_vscode
-    install_zsh
-    install_vim_plug
-    setup_git
-    setup_mkcert
+    # 系统关键组件，失败需要退出
+    setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
+    update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
+    install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
     
-    log "INFO" "Ubuntu setup completed!"
+    # 非关键组件，失败可以继续
+    setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
+    install_youtube_dl || log "WARN" "Youtube-dl installation failed but continuing..."
+    install_linuxbrew || log "WARN" "Linuxbrew installation failed but continuing..."
+    install_brew_tools || log "WARN" "Some brew tools installation failed but continuing..."
+    install_nvm || log "WARN" "NVM installation failed but continuing..."
+    install_go || log "WARN" "Go installation failed but continuing..."
+    setup_python || log "WARN" "Python setup failed but continuing..."
+    install_docker || log "WARN" "Docker installation failed but continuing..."
+    install_vscode || log "WARN" "VS Code installation failed but continuing..."
+    install_zsh || log "WARN" "Zsh installation failed but continuing..."
+    install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
+    setup_git || log "WARN" "Git setup failed but continuing..."
+    setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
+    
+    log "INFO" "Ubuntu setup completed! Some components might have failed to install, please check the logs for details."
 }
 
 # 执行主函数

@@ -160,7 +160,7 @@ install_basic_casks() {
     done
 }
 
-# 安装可选应用
+# 安装可���应用
 install_optional_app() {
     local app_name=$1
     local cask_name=$2
@@ -273,21 +273,24 @@ setup_mkcert() {
 
 # 主函数
 main() {
-    setup_hostname
-    install_homebrew
-    setup_homebrew
-    install_basic_tools
-    install_dev_tools
-    install_pm2
-    install_basic_casks
-    install_optional_apps
-    install_oh_my_zsh
-    install_vim_plug
-    install_nvm
-    setup_git
-    setup_mkcert
+    # 系统关键组件，失败需要退出
+    setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
+    install_homebrew || { log "ERROR" "Homebrew installation failed, cannot continue"; exit 1; }
+    setup_homebrew || log "ERROR" "Homebrew setup failed but continuing..."
     
-    log "INFO" "macOS setup completed!"
+    # 非关键组件，失败可以继续
+    install_basic_tools || log "WARN" "Some basic tools installation failed but continuing..."
+    install_dev_tools || log "WARN" "Some development tools installation failed but continuing..."
+    install_pm2 || log "WARN" "PM2 installation failed but continuing..."
+    install_basic_casks || log "WARN" "Some basic applications installation failed but continuing..."
+    install_optional_apps || log "WARN" "Some optional applications installation failed but continuing..."
+    install_oh_my_zsh || log "WARN" "Oh My Zsh installation failed but continuing..."
+    install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
+    install_nvm || log "WARN" "NVM installation failed but continuing..."
+    setup_git || log "WARN" "Git setup failed but continuing..."
+    setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
+    
+    log "INFO" "macOS setup completed! Some components might have failed to install, please check the logs for details."
 }
 
 # 执行主函数
