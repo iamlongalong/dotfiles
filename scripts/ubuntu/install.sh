@@ -78,8 +78,21 @@ sudo chmod a+rx /usr/local/bin/youtube-dl
 # 安装 Linuxbrew
 echo "Installing Linuxbrew..."
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 为当前用户配置 Linuxbrew
 echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.profile
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# 为 root 用户配置 Linuxbrew
+sudo bash -c 'echo "eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"" >> /root/.profile'
+sudo bash -c 'echo "eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"" >> /root/.bashrc'
+
+# 设置正确的权限
+sudo chown -R $(whoami):$(whoami) /home/linuxbrew
+sudo chmod -R g+rwx /home/linuxbrew
+
+# 将 root 用户添加到当前用户组
+sudo usermod -a -G $(whoami) root
 
 # 配置 Homebrew 国内源
 echo "Configuring Homebrew mirrors..."

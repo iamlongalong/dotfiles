@@ -1,5 +1,55 @@
 #!/bin/bash
 
+# 设置临时代理函数
+setup_proxy() {
+    local default_proxy="127.0.0.1:7890"
+    
+    echo "是否需要设置临时代理? (y/N)"
+    read -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "请输入代理地址 (默认: $default_proxy):"
+        read proxy_addr
+        proxy_addr=${proxy_addr:-$default_proxy}
+        
+        # 设置当前会话的环境变量代理
+        export http_proxy="socks5://$proxy_addr"
+        export https_proxy="socks5://$proxy_addr"
+        export all_proxy="socks5://$proxy_addr"
+        export HTTP_PROXY="socks5://$proxy_addr"
+        export HTTPS_PROXY="socks5://$proxy_addr"
+        export ALL_PROXY="socks5://$proxy_addr"
+        
+        # 临时设置 Git 代理（只对当前仓库有效）
+        git config http.proxy "socks5://$proxy_addr"
+        git config https.proxy "socks5://$proxy_addr"
+        
+        echo "临时代理已设置为 socks5://$proxy_addr"
+        echo "代理设置仅在本次安装过程中有效"
+    fi
+}
+
+# 清理代理设置
+cleanup_proxy() {
+    if [ -n "$http_proxy" ] || [ -n "$https_proxy" ] || [ -n "$all_proxy" ]; then
+        # 清除环境变量代理
+        unset http_proxy https_proxy all_proxy
+        unset HTTP_PROXY HTTPS_PROXY ALL_PROXY
+        
+        # 清除当前仓库的 Git 代理设置
+        git config --unset http.proxy
+        git config --unset https.proxy
+        
+        echo "临时代理设置已清除"
+    fi
+}
+
+# 设置临时代理（如果需要）
+setup_proxy
+
+# 确保在脚本退出时清理代理设置
+trap cleanup_proxy EXIT
+
 # 导入工具函数
 source scripts/common/utils.sh
 
@@ -76,4 +126,4 @@ main() {
 }
 
 # 执行主函数
-main 
+main
