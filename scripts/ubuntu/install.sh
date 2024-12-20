@@ -518,6 +518,33 @@ setup_mkcert() {
     fi
 }
 
+# 带代理的 wget 下载
+wget_with_proxy() {
+    local url="$1"
+    shift  # 移除第一个参数（URL）
+    
+    # 检查是否需要使用代理
+    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]] || [[ "$url" == *"yt-dl.org"* ]]; then
+        if check_proxy; then
+            log "INFO" "Using proxy for wget: $url"
+            proxychains4 wget "$url" "$@"
+            return $?
+        else
+            log "INFO" "Proxy is not available, using direct connection for wget: $url"
+        fi
+    fi
+    
+    # 默认不使用代理
+    wget "$url" "$@"
+}
+
+# 带超时的 wget 下载
+wget_with_timeout() {
+    local url="$1"
+    shift  # 移除第一个参数（URL）
+    wget_with_proxy "$url" --timeout=$WGET_TIMEOUT --tries=3 "$@"
+}
+
 # 主函数
 main() {
     # 系统关键组件，失败需要退出
