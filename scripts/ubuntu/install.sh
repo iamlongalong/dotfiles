@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Starting Ubuntu setup..."
-
 # 显示路径信息
 echo "Current working directory: $(pwd)"
 echo "Script path: ${BASH_SOURCE[0]}"
@@ -14,94 +12,62 @@ echo "Absolute script directory: ${SCRIPT_DIR}"
 # 导入工具函数
 source "${SCRIPT_DIR}/../common/utils.sh"
 
+# 导入共享函数
+source "${SCRIPT_DIR}/../common/homebrew.sh"
+
 # 设置超时时间（秒）
 CURL_TIMEOUT=30
-WGET_TIMEOUT=300
-APT_TIMEOUT=600  # 10分钟
+BREW_INSTALL_TIMEOUT=600  # 10分钟
 
 # 检查命令是否存在
 check_cmd_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# 检查代理是否可用
-check_proxy() {
-    # 检查 proxychains4 配置文件是否存在且包含有效配置
-    if [ -f /etc/proxychains4.conf ] && grep -q "^socks5.*7890" /etc/proxychains4.conf; then
-        # 尝试通过代理访问 google.com 来验证代理是否工作
-        if proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
-            return 0
-        fi
+# 带超时的 curl 下载
+curl_with_timeout() {
+    if [ -z "$1" ]; then
+        log "ERROR" "URL is required for curl_with_timeout"
+        return 1
     fi
-    return 1
+    curl --connect-timeout ${CURL_TIMEOUT} --max-time $((CURL_TIMEOUT * 10)) "$@"
 }
 
-# 带代理的 curl 下载
-curl_with_proxy() {
-    local url="$1"
-    shift  # 移除第一个参数（URL）
-    
-    # 检查是否需要使用代理
-    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]]; then
-        if check_proxy; then
-            log "INFO" "Using proxy for: $url"
-            proxychains4 curl "$url" "$@"
-            return $?
-        else
-            log "INFO" "Proxy is not available, using direct connection for: $url"
-        fi
+# 获取普通用户名
+get_normal_user() {
+    # 获取第一个非 root 的用户常是主用户
+    local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
+    if [ -z "$user" ]; then
+        # 如果 who 命令没有结果，尝试从 /home 目录获取
+        user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
-    
-    # 默认不使用代理
-    curl "$url" "$@"
+    echo "$user"
 }
 
-# 带代理的 git 操作
-git_with_proxy() {
-    # 检查是否需要使用代理
-    if [[ "$*" == *"github.com"* ]] || [[ "$*" == *"githubusercontent.com"* ]]; then
-        if check_proxy; then
-            log "INFO" "Using proxy for git: $*"
-            proxychains4 git "$@"
-            return $?
-        else
-            log "INFO" "Proxy is not available, using direct connection for git"
-        fi
+# 以普通用户身份运行命令
+run_as_normal_user() {
+    if [ -z "$1" ]; then
+        log "ERROR" "Command is required for run_as_normal_user"
+        return 1
+    fi
+    local cmd="$1"
+    local user=$(get_normal_user)
+    
+    if [ -z "$user" ]; then
+        log "ERROR" "No normal user found to run command"
+        return 1
     fi
     
-    # 默认不使用代理
-    git "$@"
-}
-
-# 修改 {
-    local url="$1"
-    shift  # 移除第一个参数（URL）
+    # 如果当前已经是目标用户，直接运行命令
+    if [ "$USER" = "$user" ]; then
+        eval "$cmd"
+        return $?
+    fi
     
-    # 设置重试次数和重试延迟
-    local retries=3
-    local retry_delay=5
-    local attempt=1
-    
-    while [ $attempt -le $retries ]; do
-        if curl_with_proxy "$url" \
-            --connect-            --max-time $((2)) \
-            --retry 3 \
-            --retry-delay 2 \
-            --retry-max-time $((3)) \
-            "$@"; then
-            return 0
-        fi
-        
-        log "WARN" "Attempt $attempt of $retries failed for URL: $url"
-        if [ $attempt -lt $retries ]; then
-            log "INFO" "Retrying in $retry_delay seconds..."
-            sleep $retry_delay
-        fi
-        attempt=$((attempt + 1))
-    done
-    
-    log "ERROR" "Failed to download after $retries attempts: $url"
-    return 1
+    # 否则，使用 su 切换到目标用户运行命令
+    log "INFO" "Running command as user: $user"
+    su - "$user" -c "$cmd"
+    return $?
 }
 
 # 配置主机名
@@ -204,39 +170,6 @@ EOF
     fi
 }
 
-# 获取普通用户名
-get_normal_user() {
-    # 获取第一个非 root 的用户常是主用户
-    local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
-    if [ -z "$user" ]; then
-        # 如果 who 命令没有结果，尝试从 /home 目录获取
-        user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
-    fi
-    echo "$user"
-}
-
-# 以普通用户身份运行命令
-run_as_normal_user() {
-    local cmd="$1"
-    local user=$(get_normal_user)
-    
-    if [ -z "$user" ]; then
-        log "ERROR" "No normal user found to run Linuxbrew installation"
-        return 1
-    fi
-    
-    # 如果当前已经是目标用户，直接运行命令
-    if [ "$USER" = "$user" ]; then
-        eval "$cmd"
-        return $?
-    fi
-    
-    # 否则，使用 su 切换到目标用户运行命令
-    log "INFO" "Running command as user: $user"
-    su - "$user" -c "$cmd"
-    return $?
-}
-
 # 以普通用户身份运行 brew 命令
 brew_as_user() {
     local normal_user=$(get_normal_user)
@@ -256,9 +189,6 @@ brew_as_user() {
     su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
     return $?
 }
-
-# 导入共享函数
-source "${SCRIPT_DIR}/../common/homebrew.sh"
 
 install_linuxbrew() {
     if check_cmd_exists brew; then
@@ -651,20 +581,6 @@ install_zsh() {
     setup_zsh
 }
 
-# 安装 Vim 插件管理器
-# install_vim_plug() {
-#     if [ ! -f ~/.vim/autoload/plug.vim ]; then
-#         log "INFO" "Installing Vim-Plug..."
-#         if ! curl_with_timeout -fLo ~/.vim/autoload/plug.vim --create-dirs \
-#             https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim; then
-#             log "ERROR" "Failed to install Vim-Plug"
-#             return 1
-#         fi
-#     else
-#         log "INFO" "Vim-Plug is already installed, skipping..."
-#     fi
-# }
-
 # 配置 Git
 setup_git() {
     log "INFO" "Configuring Git..."
@@ -841,7 +757,7 @@ EOF
 
 # 主函数
 main() {
-    # 系统关键组件，失败需要退出
+    # 系统关键组件，失败需��退出
     setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
@@ -864,7 +780,6 @@ main() {
     install_nps || log "WARN" "NPS installation failed but continuing..."
     install_vscode || log "WARN" "VS Code installation failed but continuing..."
     install_zsh || log "WARN" "Zsh installation failed but continuing..."
-    # install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
     setup_git || log "WARN" "Git setup failed but continuing..."
     setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
     
