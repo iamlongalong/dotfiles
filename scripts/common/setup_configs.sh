@@ -3,61 +3,88 @@
 # 获取脚本所在目录的绝对路径
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-echo "Setting up configurations..."
+# 定义配置目录
+CONFIG_DIRS=(
+    ~/.config
+    ~/.config/zsh/{functions,aliases}
+    ~/.vim
+    ~/.shell/aliases
+    ~/.scripts
+    ~/code/{python,javascript}
+    ~/go/src/{gay,long}
+)
 
-# 创建配置目录
-mkdir -p ~/.config
-mkdir -p ~/.vim
+# 定义配置文件映射
+declare -A CONFIG_FILES=(
+    ["${SCRIPT_DIR}/vimrc"]="$HOME/.vimrc"
+    ["${SCRIPT_DIR}/functions.sh"]="$HOME/.config/zsh/functions/common.zsh"
+    ["${SCRIPT_DIR}/functions_extra.sh"]="$HOME/.config/zsh/functions/extra.zsh"
+    ["${SCRIPT_DIR}/aliases/kubernetes.sh"]="$HOME/.config/zsh/aliases/kubernetes.zsh"
+)
 
-# 复制 Vim 配置
-echo "Setting up Vim configuration..."
-cp "${SCRIPT_DIR}/vimrc" ~/.vimrc
+# 错误处理函数
+handle_error() {
+    echo "Error: $1" >&2
+    exit 1
+}
+
+# 创建必要的目录
+echo "Creating configuration directories..."
+for dir in "${CONFIG_DIRS[@]}"; do
+    mkdir -p "$dir" || handle_error "Failed to create directory: $dir"
+done
+
+# 复制配置文件
+echo "Copying configuration files..."
+for src in "${!CONFIG_FILES[@]}"; do
+    dst="${CONFIG_FILES[$src]}"
+    if [ -f "$src" ]; then
+        cp "$src" "$dst" || handle_error "Failed to copy: $src -> $dst"
+        echo "Copied: $src -> $dst"
+    else
+        echo "Warning: Source file not found: $src"
+    fi
+done
 
 # 安装 vim-plug
 echo "Installing vim-plug..."
-curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-
-# 复制 Shell 函数和别名
-echo "Setting up Shell functions and aliases..."
-mkdir -p ~/.shell/aliases
-cp "${SCRIPT_DIR}/functions.sh" ~/.shell/
-cp "${SCRIPT_DIR}/functions_extra.sh" ~/.shell/
-cp "${SCRIPT_DIR}/aliases/kubernetes.sh" ~/.shell/aliases/
-echo "source ~/.shell/functions.sh" >> ~/.zshrc
-echo "source ~/.shell/functions_extra.sh" >> ~/.zshrc
-echo "source ~/.shell/aliases/kubernetes.sh" >> ~/.zshrc
+if [ ! -f ~/.vim/autoload/plug.vim ]; then
+    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim || \
+        handle_error "Failed to install vim-plug"
+fi
 
 # 安装 Vim 插件
 echo "Installing Vim plugins..."
-vim +PlugInstall +qall
+vim +PlugInstall +qall || handle_error "Failed to install Vim plugins"
 
 # 检查并安装 Python
 if ! command -v python3 &> /dev/null; then
     echo "Python3 not found. Installing Python3..."
     if command -v apt-get &> /dev/null; then
-        sudo apt-get update
-        sudo apt-get install -y python3 python3-pip
+        sudo apt-get update || handle_error "Failed to update package list"
+        sudo apt-get install -y python3 python3-pip || handle_error "Failed to install Python3"
     elif command -v brew &> /dev/null; then
-        brew install python3
+        brew install python3 || handle_error "Failed to install Python3"
     else
-        echo "Error: Could not install Python. Please install Python3 manually."
-        exit 1
+        handle_error "Could not install Python. Please install Python3 manually."
     fi
 fi
 
 # 设置 Node.js 环境
 echo "Setting up Node.js environment..."
-./node_setup.sh
+if [ -f "./node_setup.sh" ]; then
+    bash ./node_setup.sh || handle_error "Node.js setup failed"
+else
+    handle_error "node_setup.sh not found"
+fi
 
 # 设置 Python 环境
 echo "Setting up Python environment..."
-./python_setup.sh
-
-# 创建常用目录
-echo "Creating common directories..."
-mkdir -p ~/code/{python,javascript}
-mkdir -p ~/.scripts
-mkdir -p ~/go/src/{gay,long}
+if [ -f "./python_setup.sh" ]; then
+    bash ./python_setup.sh || handle_error "Python setup failed"
+else
+    handle_error "python_setup.sh not found"
+fi
 
 echo "Configuration setup completed!" 

@@ -198,6 +198,13 @@ install_linuxbrew() {
 
     log "INFO" "Installing Linuxbrew..."
     
+    # 获取普通用户
+    local normal_user=$(get_normal_user)
+    if [ -z "$normal_user" ]; then
+        log "ERROR" "No normal user found to install Linuxbrew"
+        return 1
+    fi
+    
     # 准备安装命令
     local install_script=$(cat << 'EOF'
 #!/bin/bash
@@ -209,7 +216,7 @@ export HOMEBREW_INSTALL_FROM_API=1
 export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
 export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
 
-# 安装 Homebrew
+# ��装 Homebrew
 cd /tmp
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
 /bin/bash brew-install/install.sh
@@ -221,7 +228,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 # 等待 Homebrew 初始化完成
 sleep 5
 
-# 配置镜像源（只在目录存在时执行）
+# 配置镜像源
 if [ -d "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" ]; then
     git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
 fi
@@ -229,48 +236,11 @@ fi
 if [ -d "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" ]; then
     git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
 fi
-
-# 添加环境变量配置到 shell 配置文件
-shell_config="# Homebrew
-eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
-
-# Homebrew Mirrors
-export HOMEBREW_BREW_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git\"
-export HOMEBREW_CORE_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git\"
-export HOMEBREW_BOTTLE_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles\"
-export HOMEBREW_API_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api\"
-export HOMEBREW_INSTALL_FROM_API=1"
-
-# 确保只添加一次配置
-for config_file in ~/.bashrc ~/.zshrc; do
-    if [ -f "$config_file" ]; then
-        if ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
-            echo -e "\n$shell_config" >> "$config_file"
-        fi
-    fi
-done
-
-# 立即应用配置
-eval "$shell_config"
-
-# 验证安装
-if ! command -v brew >/dev/null 2>&1; then
-    echo "ERROR: Homebrew installation verification failed"
-    exit 1
-fi
-
-echo "Homebrew installation and configuration completed successfully"
 EOF
 )
 
     # 如果是 root 用户，切换到普通用户安装
     if [ "$EUID" -eq 0 ]; then
-        local normal_user=$(get_normal_user)
-        if [ -z "$normal_user" ]; then
-            log "ERROR" "No normal user found to install Linuxbrew"
-            return 1
-        fi
-        
         # 安装依赖
         log "INFO" "Installing Linuxbrew dependencies..."
         if ! apt-get install -y build-essential procps curl file git gcc; then
@@ -292,14 +262,23 @@ EOF
             return 1
         fi
         rm -f "$temp_script"
+
+        # 为 root 用户添加 Homebrew 配置
+        log "INFO" "Adding Homebrew configuration to root's shell..."
+        source "${SCRIPT_DIR}/../common/homebrew.sh"
+        add_brew_config_to_shell "/home/linuxbrew/.linuxbrew"
+
+        # 为普通用户添加 Homebrew 配置
+        log "INFO" "Adding Homebrew configuration to $normal_user's shell..."
+        su - "$normal_user" -c "source ${SCRIPT_DIR}/../common/homebrew.sh && add_brew_config_to_shell /home/linuxbrew/.linuxbrew"
+
+        # 确保 Homebrew 目录权限正确
+        chown -R "$normal_user:$(id -gn $normal_user)" /home/linuxbrew
     else
         # 当前已经是普通用户，直接安装
         log "INFO" "Installing Linuxbrew dependencies..."
-        # 临时禁用代理
-        
         if ! sudo apt-get install -y build-essential procps curl file git gcc; then
             log "ERROR" "Failed to install dependencies"
-            # 恢复代理设置
             return 1
         fi
         
@@ -315,6 +294,10 @@ EOF
             return 1
         fi
         rm -f "$temp_script"
+
+        # 添加 Homebrew 配置
+        source "${SCRIPT_DIR}/../common/homebrew.sh"
+        add_brew_config_to_shell "/home/linuxbrew/.linuxbrew"
     fi
 
     log "INFO" "Linuxbrew installation completed successfully"
@@ -389,7 +372,7 @@ export NVM_DIR="$HOME/.nvm"
         [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" --no-use
         [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"
         
-        # 配置 npm 淘宝镜像
+        # 配置 npm 宝镜像
         if [ ! -f "$HOME/.npmrc" ]; then
             echo "registry=https://registry.npmmirror.com" > "$HOME/.npmrc"
         fi
@@ -567,7 +550,7 @@ install_docker() {
     return 0
 }
 
-# ��装 VS Code
+# 安装 VS Code
 install_vscode() {
     if ! check_cmd_exists code; then
         log "INFO" "Installing Visual Studio Code..."
@@ -665,7 +648,7 @@ install_nps() {
             "https://github.com/ehang-io/nps/releases/download/${nps_version}/${nps_file}"  # GitHub源
         )
         
-        # 尝试从不同源下载
+        # 尝试���不同源下载
         local download_success=false
         for url in "${download_urls[@]}"; do
             log "INFO" "Trying to download from: $url"
