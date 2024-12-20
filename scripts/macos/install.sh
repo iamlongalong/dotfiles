@@ -51,19 +51,21 @@ install_homebrew() {
     if ! check_cmd_exists brew; then
         log "INFO" "Installing Homebrew..."
         
-        # 检查是否是 root 用户
         if [ "$EUID" -eq 0 ]; then
             log "ERROR" "Homebrew must not be run under sudo"
             return 1
         fi
         
-        # 下载并安装 Homebrew
-        if ! curl_with_timeout -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash; then
+        # 使用清华大学镜像源安装 Homebrew
+        export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+        export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+        export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+        
+        if ! /bin/bash -c "$(curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install/master/install.sh)"; then
             log "ERROR" "Failed to install Homebrew"
             return 1
         fi
         
-        # 验证安装
         if ! check_cmd_exists brew; then
             log "ERROR" "Homebrew installation verification failed"
             return 1
@@ -193,20 +195,21 @@ install_optional_apps() {
 install_oh_my_zsh() {
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         log "INFO" "Installing Oh My Zsh..."
-        if ! curl_with_timeout -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | bash; then
+        if ! brew install zsh; then
+            log "ERROR" "Failed to install Zsh"
+            return 1
+        fi
+        
+        # 使用 brew 安装 oh-my-zsh
+        if ! brew install oh-my-zsh; then
             log "ERROR" "Failed to install Oh My Zsh"
             return 1
         fi
         
         # 安装插件
         log "INFO" "Installing Zsh plugins..."
-        local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
-        if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
-            git clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
-        fi
-        if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
-            git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
-        fi
+        brew install zsh-autosuggestions
+        brew install zsh-syntax-highlighting
     else
         log "INFO" "Oh My Zsh is already installed, skipping..."
     fi
@@ -214,13 +217,13 @@ install_oh_my_zsh() {
 
 # 安装 Vim 插件管理器
 install_vim_plug() {
+    if ! check_cmd_exists vim; then
+        brew install vim
+    fi
+    
     if [ ! -f ~/.vim/autoload/plug.vim ]; then
         log "INFO" "Installing Vim-Plug..."
-        if ! curl_with_timeout -fLo ~/.vim/autoload/plug.vim --create-dirs \
-            https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim; then
-            log "ERROR" "Failed to install Vim-Plug"
-            return 1
-        fi
+        brew install vim-plug
     else
         log "INFO" "Vim-Plug is already installed, skipping..."
     fi
@@ -230,12 +233,14 @@ install_vim_plug() {
 install_nvm() {
     if [ ! -d "$HOME/.nvm" ]; then
         log "INFO" "Installing NVM..."
-        if ! curl_with_timeout -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash; then
+        if ! brew install nvm; then
             log "ERROR" "Failed to install NVM"
             return 1
         fi
+        
+        # 加载 NVM
         export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
         
         # 安装 Node.js LTS
         if ! timeout $((CURL_TIMEOUT * 2)) nvm install --lts; then
@@ -244,9 +249,9 @@ install_nvm() {
         fi
         nvm use --lts
         
-        # 安装全局包
+        # 使用 brew 安装 yarn
         if check_cmd_exists npm; then
-            npm install -g yarn
+            brew install yarn
         fi
     else
         log "INFO" "NVM is already installed, skipping..."
@@ -255,8 +260,21 @@ install_nvm() {
 
 # 配置 Git
 setup_git() {
-    log "INFO" "Configuring Git..."
-    cp "${SCRIPT_DIR}/../common/gitconfig" ~/.gitconfig
+    log "INFO" "Setting up basic Git configuration..."
+    
+    # 如果用户名和邮箱未设置，提示用户输入
+    if ! git config --global user.name > /dev/null; then
+        read -p "Enter your Git user name: " git_user_name
+        git config --global user.name "$git_user_name"
+    fi
+    
+    if ! git config --global user.email > /dev/null; then
+        read -p "Enter your Git email: " git_user_email
+        git config --global user.email "$git_user_email"
+    fi
+    
+    log "INFO" "Basic Git configuration completed"
+    log "INFO" "Note: Detailed Git configuration will be managed by chezmoi"
 }
 
 # 设置 mkcert
@@ -271,26 +289,98 @@ setup_mkcert() {
     fi
 }
 
+# 添加缺失的函数
+install_xcode_cli() {
+    if ! xcode-select -p &>/dev/null; then
+        log "INFO" "Installing Xcode Command Line Tools..."
+        if ! xcode-select --install; then
+            log "ERROR" "Failed to install Xcode Command Line Tools"
+            return 1
+        fi
+    else
+        log "INFO" "Xcode Command Line Tools already installed"
+    fi
+}
+
+install_brew_tools() {
+    install_basic_tools
+    install_dev_tools
+    install_basic_casks
+    install_optional_apps
+}
+
+install_go() {
+    if ! check_cmd_exists go; then
+        log "INFO" "Installing Go..."
+        if ! brew install go; then
+            log "ERROR" "Failed to install Go"
+            return 1
+        fi
+    fi
+}
+
+setup_python() {
+    if ! check_cmd_exists python3; then
+        log "INFO" "Installing Python..."
+        if ! brew install python; then
+            log "ERROR" "Failed to install Python"
+            return 1
+        fi
+    fi
+}
+
+install_docker() {
+    if ! check_cmd_exists docker; then
+        log "INFO" "Installing Docker..."
+        if ! brew install --cask docker; then
+            log "ERROR" "Failed to install Docker"
+            return 1
+        fi
+    fi
+}
+
+install_vscode() {
+    if ! brew list --cask visual-studio-code &>/dev/null; then
+        log "INFO" "Installing Visual Studio Code..."
+        if ! brew install --cask visual-studio-code; then
+            log "ERROR" "Failed to install Visual Studio Code"
+            return 1
+        fi
+    fi
+}
+
+install_zsh() {
+    if ! check_cmd_exists zsh; then
+        log "INFO" "Installing Zsh..."
+        if ! brew install zsh; then
+            log "ERROR" "Failed to install Zsh"
+            return 1
+        fi
+    fi
+}
+
 # 主函数
 main() {
     # 系统关键组件，失败需要退出
     setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
-    install_homebrew || { log "ERROR" "Homebrew installation failed, cannot continue"; exit 1; }
-    setup_homebrew || log "ERROR" "Homebrew setup failed but continuing..."
+    install_xcode_cli || { log "ERROR" "XCode CLI tools installation failed"; exit 1; }
+    install_homebrew || { log "ERROR" "Homebrew installation failed"; exit 1; }
     
     # 非关键组件，失败可以继续
-    install_basic_tools || log "WARN" "Some basic tools installation failed but continuing..."
-    install_dev_tools || log "WARN" "Some development tools installation failed but continuing..."
-    install_pm2 || log "WARN" "PM2 installation failed but continuing..."
-    install_basic_casks || log "WARN" "Some basic applications installation failed but continuing..."
-    install_optional_apps || log "WARN" "Some optional applications installation failed but continuing..."
-    install_oh_my_zsh || log "WARN" "Oh My Zsh installation failed but continuing..."
-    install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
+    install_brew_tools || log "WARN" "Some brew tools installation failed but continuing..."
     install_nvm || log "WARN" "NVM installation failed but continuing..."
+    install_go || log "WARN" "Go installation failed but continuing..."
+    setup_python || log "WARN" "Python setup failed but continuing..."
+    install_docker || log "WARN" "Docker installation failed but continuing..."
+    install_vscode || log "WARN" "VS Code installation failed but continuing..."
+    install_zsh || log "WARN" "Zsh installation failed but continuing..."
+    install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
     setup_git || log "WARN" "Git setup failed but continuing..."
-    setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
     
-    log "INFO" "macOS setup completed! Some components might have failed to install, please check the logs for details."
+    log "INFO" "macOS setup completed!"
+    log "INFO" "Please use chezmoi to manage your dotfiles:"
+    log "INFO" "1. Initialize: chezmoi init <your-dotfiles-repo>"
+    log "INFO" "2. Apply: chezmoi apply"
 }
 
 # 执行主函数

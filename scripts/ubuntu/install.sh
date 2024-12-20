@@ -168,7 +168,7 @@ EOF
 
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户通常是主用户
+    # 获取第一个非 root 的用户���常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -213,7 +213,7 @@ brew_as_user() {
         return $?
     fi
     
-    # 否则，使用 su 切换到目标用户运行命令
+    # 否则，使用 su 切换到目标用户运行���令
     log "INFO" "Running brew command as user: $normal_user"
     su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
     return $?
@@ -517,47 +517,31 @@ install_zsh() {
             log "ERROR" "Failed to install Zsh"
             return 1
         fi
-    fi
-    
-    if [ ! -d "$HOME/.oh-my-zsh" ]; then
-        log "INFO" "Installing Oh My Zsh..."
-        if ! curl_with_timeout https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -fsSL | bash; then
-            log "ERROR" "Failed to install Oh My Zsh"
-            return 1
-        fi
-        
-        # 安装插件
-        log "INFO" "Installing Zsh plugins..."
-        local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
-        if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
-            git_with_proxy clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
-        fi
-        if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
-            git_with_proxy clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
-        fi
     else
-        log "INFO" "Oh My Zsh is already installed, skipping..."
+        log "INFO" "Zsh is already installed, skipping..."
     fi
+
+    setup_zsh
 }
 
 # 安装 Vim 插件管理器
-install_vim_plug() {
-    if [ ! -f ~/.vim/autoload/plug.vim ]; then
-        log "INFO" "Installing Vim-Plug..."
-        if ! curl_with_timeout -fLo ~/.vim/autoload/plug.vim --create-dirs \
-            https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim; then
-            log "ERROR" "Failed to install Vim-Plug"
-            return 1
-        fi
-    else
-        log "INFO" "Vim-Plug is already installed, skipping..."
-    fi
-}
+# install_vim_plug() {
+#     if [ ! -f ~/.vim/autoload/plug.vim ]; then
+#         log "INFO" "Installing Vim-Plug..."
+#         if ! curl_with_timeout -fLo ~/.vim/autoload/plug.vim --create-dirs \
+#             https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim; then
+#             log "ERROR" "Failed to install Vim-Plug"
+#             return 1
+#         fi
+#     else
+#         log "INFO" "Vim-Plug is already installed, skipping..."
+#     fi
+# }
 
 # 配置 Git
 setup_git() {
     log "INFO" "Configuring Git..."
-    cp ../common/gitconfig ~/.gitconfig
+    cp "${SCRIPT_DIR}/../common/gitconfig" ~/.gitconfig
     # set git user name and email
     read -p "Enter your Git user name(empty to skip): " git_user_name
     read -p "Enter your Git email(empty to skip): " git_user_email
@@ -571,11 +555,20 @@ setup_git() {
 setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
-        chmod +x ../common/setup_mkcert.sh
-        if ! timeout $((CURL_TIMEOUT * 2)) ../common/setup_mkcert.sh; then
+        chmod +x "${SCRIPT_DIR}/../common/setup_mkcert.sh"
+        if ! "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
             log "ERROR" "Failed to setup mkcert"
             return 1
         fi
+    fi
+}
+
+# setup zsh
+setup_zsh() {
+    chmod +x "${SCRIPT_DIR}/../common/setup_zsh.sh"
+    if ! "${SCRIPT_DIR}/../common/setup_zsh.sh"; then
+        log "ERROR" "Failed to setup zsh"
+        return 1
     fi
 }
 
@@ -603,7 +596,7 @@ main() {
     install_docker || log "WARN" "Docker installation failed but continuing..."
     install_vscode || log "WARN" "VS Code installation failed but continuing..."
     install_zsh || log "WARN" "Zsh installation failed but continuing..."
-    install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
+    # install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
     setup_git || log "WARN" "Git setup failed but continuing..."
     setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
     
