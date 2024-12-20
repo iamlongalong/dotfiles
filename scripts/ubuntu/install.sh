@@ -38,7 +38,7 @@ get_normal_user() {
     # 获取第一个非 root 的用户常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
-        # 如果 who 命令没有结��，尝试从 /home 目录获取
+        # 如果 who 命令没有结果，尝试从 /home 目录获取
         user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
     echo "$user"
@@ -178,7 +178,7 @@ brew_as_user() {
         return 1
     fi
     
-    # 如果当前已经是目���用户，直接运行命令
+    # 如果当前已经是目标用户，直接运行命令
     if [ "$USER" = "$normal_user" ]; then
         /home/linuxbrew/.linuxbrew/bin/brew "$@"
         return $?
@@ -218,10 +218,17 @@ rm -rf brew-install
 # 配置 Homebrew
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
-# 配置镜像源
-brew_path="/home/linuxbrew/.linuxbrew"
-git -C "$brew_path" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
-git -C "$brew_path/Library/Taps/homebrew/homebrew-core" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git 2>/dev/null || true
+# 等待 Homebrew 初始化完成
+sleep 5
+
+# 配置镜像源（只在目录存在时执行）
+if [ -d "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" ]; then
+    git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
+fi
+
+if [ -d "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" ]; then
+    git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
+fi
 
 # 添加环境变量配置到 shell 配置文件
 shell_config="# Homebrew
@@ -231,13 +238,28 @@ eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
 export HOMEBREW_BREW_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git\"
 export HOMEBREW_CORE_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git\"
 export HOMEBREW_BOTTLE_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles\"
-export HOMEBREW_API_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api\""
+export HOMEBREW_API_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api\"
+export HOMEBREW_INSTALL_FROM_API=1"
 
+# 确保只添加一次配置
 for config_file in ~/.bashrc ~/.zshrc; do
-    if [ -f "$config_file" ] && ! grep -q "brew shellenv" "$config_file"; then
-        echo "$shell_config" >> "$config_file"
+    if [ -f "$config_file" ]; then
+        if ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
+            echo -e "\n$shell_config" >> "$config_file"
+        fi
     fi
 done
+
+# 立即应用配置
+eval "$shell_config"
+
+# 验证安装
+if ! command -v brew >/dev/null 2>&1; then
+    echo "ERROR: Homebrew installation verification failed"
+    exit 1
+fi
+
+echo "Homebrew installation and configuration completed successfully"
 EOF
 )
 
@@ -545,7 +567,7 @@ install_docker() {
     return 0
 }
 
-# 安装 VS Code
+# ��装 VS Code
 install_vscode() {
     if ! check_cmd_exists code; then
         log "INFO" "Installing Visual Studio Code..."
