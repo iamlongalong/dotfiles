@@ -101,7 +101,7 @@ main() {
     
     # 检查网络连接
     log "INFO" "Checking network connectivity..."
-    check_network || exit 1
+    # check_network || exit 1
     
     # 创建必要的目录
     log "INFO" "Setting up directories..."
