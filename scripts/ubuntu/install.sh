@@ -24,14 +24,60 @@ check_cmd_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# 带超时的 curl 下载
-curl_with_timeout() { # max 5 minutes
-    curl --connect-timeout $CURL_TIMEOUT --max-time $((CURL_TIMEOUT * 10)) "$@"
+# 检查代理是否可用
+check_proxy() {
+    # 检查 proxychains4 配置文件是否存在且包含有效配置
+    if [ -f /etc/proxychains4.conf ] && grep -q "^socks5.*7890" /etc/proxychains4.conf; then
+        # 尝试通过代理访问 google.com 来验证代理是否工作
+        if timeout 5 proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
 }
 
-# 带超时的 wget 下载
-wget_with_timeout() { # max 5 minutes
-    wget --timeout=$WGET_TIMEOUT --tries=3 "$@"
+# 带代理的 curl 下载
+curl_with_proxy() {
+    local url="$1"
+    shift  # 移除第一个参数（URL）
+    
+    # 检查是否需要使用代理
+    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]] || [[ "$url" == *"yt-dl.org"* ]]; then
+        if check_proxy; then
+            log "INFO" "Using proxy for: $url"
+            proxychains4 curl "$url" "$@"
+            return $?
+        else
+            log "INFO" "Proxy is not available, using direct connection for: $url"
+        fi
+    fi
+    
+    # 默认不使用代理
+    curl "$url" "$@"
+}
+
+# 带代理的 git 操作
+git_with_proxy() {
+    # 检查是否需要使用代理
+    if [[ "$*" == *"github.com"* ]] || [[ "$*" == *"githubusercontent.com"* ]]; then
+        if check_proxy; then
+            log "INFO" "Using proxy for git: $*"
+            proxychains4 git "$@"
+            return $?
+        else
+            log "INFO" "Proxy is not available, using direct connection for git"
+        fi
+    fi
+    
+    # 默认不使用代理
+    git "$@"
+}
+
+# 修改 curl_with_timeout 函数
+curl_with_timeout() {
+    local url="$1"
+    shift  # 移除第一个参数（URL）
+    curl_with_proxy "$url" --connect-timeout $CURL_TIMEOUT --max-time $((CURL_TIMEOUT * 10)) "$@"
 }
 
 # 配置主机名
@@ -81,7 +127,7 @@ install_basic_tools() {
     done
 }
 
-# 配�� proxychains4
+# 配置 proxychains4
 setup_proxychains() {
     if [ ! -f /etc/proxychains4.conf.bak ]; then
         log "INFO" "Configuring proxychains4..."
@@ -100,10 +146,23 @@ localnet 192.168.0.0/255.255.0.0
 
 [ProxyList]
 socks5 127.0.0.1 7890
-http 127.0.0.1 7890
+# http 127.0.0.1 7890
 EOF
+        
+        # 验证代理配置
+        if check_proxy; then
+            log "INFO" "Proxy configuration verified successfully"
+        else
+            log "WARN" "Proxy is configured but seems not working"
+        fi
     else
         log "INFO" "proxychains4 is already configured, skipping..."
+        # 仍然验证代理是否工作
+        if check_proxy; then
+            log "INFO" "Existing proxy configuration is working"
+        else
+            log "WARN" "Existing proxy configuration seems not working"
+        fi
     fi
 }
 
@@ -111,10 +170,10 @@ EOF
 install_youtube_dl() {
     if ! check_cmd_exists youtube-dl; then
         log "INFO" "Installing youtube-dl..."
-        if ! curl_with_timeout -L https://yt-dl.org/downloads/latest/youtube-dl -o /tmp/youtube-dl; then
+        if ! curl_with_timeout https://yt-dl.org/downloads/latest/youtube-dl -L -o /tmp/youtube-dl; then
             log "ERROR" "Failed to download youtube-dl"
             log "WARN" "Skipping youtube-dl installation"
-            return 0  # 返回 0 表示不中断整体安装流程
+            return 0
         fi
         sudo mv /tmp/youtube-dl /usr/local/bin/
         sudo chmod a+rx /usr/local/bin/youtube-dl
@@ -198,8 +257,8 @@ fi'
             
             # 配置国内源
             local mirror_cmd='
-git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
-git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true'
+git_with_proxy -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
+git_with_proxy -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true'
             run_as_normal_user "$mirror_cmd"
             
             # 更新 Homebrew
@@ -240,8 +299,8 @@ fi'
             
             # 配置国内源
             log "INFO" "Configuring Homebrew mirrors..."
-            git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
-            git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
+            git_with_proxy -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
+            git_with_proxy -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
             
             # 更新 Homebrew
             log "INFO" "Updating Homebrew..."
@@ -408,7 +467,7 @@ install_zsh() {
     
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         log "INFO" "Installing Oh My Zsh..."
-        if ! curl_with_timeout -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | bash; then
+        if ! curl_with_timeout https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -fsSL | bash; then
             log "ERROR" "Failed to install Oh My Zsh"
             return 1
         fi
@@ -417,10 +476,10 @@ install_zsh() {
         log "INFO" "Installing Zsh plugins..."
         local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
         if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
-            git clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
+            git_with_proxy clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
         fi
         if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
-            git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
+            git_with_proxy clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
         fi
     else
         log "INFO" "Oh My Zsh is already installed, skipping..."
