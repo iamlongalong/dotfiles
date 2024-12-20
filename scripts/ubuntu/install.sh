@@ -334,7 +334,7 @@ install_brew_tools() {
     for tool in "${tools[@]}"; do
         if ! check_cmd_exists "$tool"; then
             log "INFO" "Installing $tool..."
-            if ! timeout $((CURL_TIMEOUT * 2)) bash -c "brew_as_user install $tool"; then
+            if ! brew_as_user install "$tool"; then
                 log "ERROR" "Failed to install $tool"
                 failed=$((failed + 1))
             fi
