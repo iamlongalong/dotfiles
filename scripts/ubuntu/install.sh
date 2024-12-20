@@ -168,7 +168,7 @@ EOF
 
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户，通常是主用户
+    # 获取第一个非 root 的用户���通常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -213,7 +213,7 @@ brew_as_user() {
         return $?
     fi
     
-    # 否则，使用 su 切换到目标用户运行命令
+    # 否则，使用 su 切换到目标用户运���命令
     log "INFO" "Running brew command as user: $normal_user"
     su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
     return $?
@@ -436,18 +436,60 @@ setup_python() {
 install_docker() {
     if ! check_cmd_exists docker; then
         log "INFO" "Installing Docker..."
+        
+        # 移除旧版本（如果存在）
+        log "INFO" "Removing old Docker versions if they exist..."
+        sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
+        
+        # 安装 Docker
+        log "INFO" "Installing Docker using apt..."
         if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
         
-        # 将当前用户添加到 docker 组
-        sudo usermod -aG docker $USER
-        log "INFO" "Added $USER to docker group"
+        # 启动 Docker 服务
+        log "INFO" "Starting Docker service..."
+        if ! sudo systemctl start docker; then
+            log "ERROR" "Failed to start Docker service"
+            return 1
+        fi
+        
+        # 启用 Docker 服务开机自启
+        log "INFO" "Enabling Docker service..."
+        if ! sudo systemctl enable docker; then
+            log "ERROR" "Failed to enable Docker service"
+            return 1
+        fi
+        
+        # 获取当前用户
+        local current_user=$USER
+        if [ "$EUID" -eq 0 ]; then
+            current_user=$(get_normal_user)
+        fi
+        
+        # 将用户添加到 docker 组
+        log "INFO" "Adding user $current_user to docker group..."
+        if ! sudo usermod -aG docker "$current_user"; then
+            log "ERROR" "Failed to add user to docker group"
+            return 1
+        fi
+        
+        log "INFO" "Docker installation completed"
         log "INFO" "Please log out and log back in for docker group changes to take effect"
+        log "INFO" "You can verify the installation by running: docker --version"
     else
         log "INFO" "Docker is already installed, skipping..."
+        
+        # 检查 Docker 服务状态
+        if ! sudo systemctl is-active docker >/dev/null 2>&1; then
+            log "WARN" "Docker service is not running, attempting to start..."
+            sudo systemctl start docker
+        fi
     fi
+    
+    # 继续执行后续步骤
+    return 0
 }
 
 # 安装 VS Code
