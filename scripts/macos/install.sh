@@ -160,7 +160,7 @@ install_basic_casks() {
     done
 }
 
-# 安装可���应用
+# 安装可选应用
 install_optional_app() {
     local app_name=$1
     local cask_name=$2

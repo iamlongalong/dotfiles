@@ -42,7 +42,7 @@ curl_with_proxy() {
     shift  # 移除第一个参数（URL）
     
     # 检查是否需要使用代理
-    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]] || [[ "$url" == *"yt-dl.org"* ]]; then
+    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]]; then
         if check_proxy; then
             log "INFO" "Using proxy for: $url"
             proxychains4 curl "$url" "$@"
@@ -166,25 +166,9 @@ EOF
     fi
 }
 
-# 安装 youtube-dl
-install_youtube_dl() {
-    if ! check_cmd_exists youtube-dl; then
-        log "INFO" "Installing youtube-dl..."
-        if ! curl_with_timeout https://yt-dl.org/downloads/latest/youtube-dl -L -o /tmp/youtube-dl; then
-            log "ERROR" "Failed to download youtube-dl"
-            log "WARN" "Skipping youtube-dl installation"
-            return 0
-        fi
-        sudo mv /tmp/youtube-dl /usr/local/bin/
-        sudo chmod a+rx /usr/local/bin/youtube-dl
-    else
-        log "INFO" "youtube-dl is already installed, skipping..."
-    fi
-}
-
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户，通常是主用户
+    # 获取第一个非 root 的用户通常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -379,14 +363,28 @@ install_go() {
     if ! check_cmd_exists go; then
         log "INFO" "Installing Go..."
         local go_file="go1.21.5.linux-amd64.tar.gz"
-        if ! wget_with_timeout https://go.dev/dl/$go_file -O /tmp/$go_file; then
+        local go_url="https://go.dev/dl/$go_file"
+        
+        # 下载 Go
+        if ! curl_with_timeout "$go_url" -L -o "/tmp/$go_file"; then
             log "ERROR" "Failed to download Go"
             return 1
         fi
+        
+        # 安装 Go
         sudo rm -rf /usr/local/go
-        sudo tar -C /usr/local -xzf /tmp/$go_file
-        rm /tmp/$go_file
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+        sudo tar -C /usr/local -xzf "/tmp/$go_file"
+        rm "/tmp/$go_file"
+        
+        # 配置环境变量
+        if ! grep -q "export PATH=\$PATH:/usr/local/go/bin" ~/.profile; then
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+        fi
+        
+        # 立即生效环境变量
+        export PATH=$PATH:/usr/local/go/bin
+        
+        log "INFO" "Go installation completed"
     else
         log "INFO" "Go is already installed, skipping..."
     fi
@@ -438,7 +436,8 @@ install_docker() {
 install_vscode() {
     if ! check_cmd_exists code; then
         log "INFO" "Installing Visual Studio Code..."
-        if ! wget_with_timeout -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/packages.microsoft.gpg; then
+        # 下载并安装 GPG key
+        if ! curl_with_timeout https://packages.microsoft.com/keys/microsoft.asc -fsSL | gpg --dearmor > /tmp/packages.microsoft.gpg; then
             log "ERROR" "Failed to download VS Code GPG key"
             return 1
         fi
@@ -518,33 +517,6 @@ setup_mkcert() {
     fi
 }
 
-# 带代理的 wget 下载
-wget_with_proxy() {
-    local url="$1"
-    shift  # 移除第一个参数（URL）
-    
-    # 检查是否需要使用代理
-    if [[ "$url" == *"github.com"* ]] || [[ "$url" == *"githubusercontent.com"* ]] || [[ "$url" == *"yt-dl.org"* ]]; then
-        if check_proxy; then
-            log "INFO" "Using proxy for wget: $url"
-            proxychains4 wget "$url" "$@"
-            return $?
-        else
-            log "INFO" "Proxy is not available, using direct connection for wget: $url"
-        fi
-    fi
-    
-    # 默认不使用代理
-    wget "$url" "$@"
-}
-
-# 带超时的 wget 下载
-wget_with_timeout() {
-    local url="$1"
-    shift  # 移除第一个参数（URL）
-    wget_with_proxy "$url" --timeout=$WGET_TIMEOUT --tries=3 "$@"
-}
-
 # 主函数
 main() {
     # 系统关键组件，失败需要退出
@@ -554,7 +526,6 @@ main() {
     
     # 非关键组件，失败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
-    install_youtube_dl || log "WARN" "Youtube-dl installation failed but continuing..."
     
     # Linuxbrew 和相关工具
     if install_linuxbrew; then
