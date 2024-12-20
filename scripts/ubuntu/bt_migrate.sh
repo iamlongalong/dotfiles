@@ -183,7 +183,7 @@ do_restore() {
     if [ ! -f "$BACKUP_FILE" ]; then
         log_error "未找到备份文件: $BACKUP_FILE"
         exit 1
-    }
+    fi
     
     # 解压并获取备份版本
     mkdir -p $TEMP_DIR
