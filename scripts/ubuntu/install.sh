@@ -151,12 +151,15 @@ install_basic_tools() {
         gnupg lsb-release screen vim ffmpeg proxychains4
     )
     
+    # 设置 trap 以确保清理工作
+    trap 'exit 130' INT
+    
     for tool in "${tools[@]}"; do
         if ! check_cmd_exists "$tool"; then
             log "INFO" "Installing $tool..."
-            if ! timeout $APT_TIMEOUT sudo apt install -y "$tool"; then
+            if ! sudo apt install -y "$tool"; then
                 log "ERROR" "Failed to install $tool"
-                continue  # 继续安装其他工具
+                continue
             fi
         else
             log "INFO" "$tool is already installed, skipping..."
