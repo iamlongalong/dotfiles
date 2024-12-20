@@ -366,6 +366,10 @@ install_nvm() {
     if [ ! -d "$HOME/.nvm" ]; then
         log "INFO" "Installing NVM using Homebrew..."
         
+        # 设置环境变量以禁用清理提示
+        export HOMEBREW_NO_INSTALL_CLEANUP=1
+        export HOMEBREW_NO_ENV_HINTS=1
+        
         # 使用 Homebrew 安装 nvm
         if ! brew_as_user install nvm; then
             log "ERROR" "Failed to install NVM"
@@ -379,15 +383,18 @@ install_nvm() {
         local nvm_config='
 # NVM configuration
 export NVM_DIR="$HOME/.nvm"
-[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"
-[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"'
+[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" --no-use  # This loads nvm
+[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion'
         
-        echo "$nvm_config" >> "$HOME/.bashrc"
-        echo "$nvm_config" >> "$HOME/.zshrc"
+        for config_file in ~/.bashrc ~/.zshrc; do
+            if [ -f "$config_file" ] && ! grep -q "NVM configuration" "$config_file"; then
+                echo "$nvm_config" >> "$config_file"
+            fi
+        done
         
         # 立即加载 nvm
         export NVM_DIR="$HOME/.nvm"
-        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"
+        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" --no-use
         [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"
         
         # 配置 npm 淘宝镜像
@@ -402,6 +409,7 @@ export NVM_DIR="$HOME/.nvm"
             return 1
         fi
         
+        # 使用 LTS 版本
         if ! nvm use --lts; then
             log "ERROR" "Failed to use Node.js LTS"
             return 1
@@ -808,7 +816,7 @@ main() {
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
     
-    # 非关键组件，失败可以继续
+    # 非关键组件，��败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
     
     # Linuxbrew 和相关工具
@@ -833,5 +841,5 @@ main() {
     log "INFO" "Ubuntu setup completed! Some components might have failed to install, please check the logs for details."
 }
 
-# 执行主函数
+# 执行主函���
 main 
