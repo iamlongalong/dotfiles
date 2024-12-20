@@ -29,7 +29,7 @@ check_proxy() {
     # 检查 proxychains4 配置文件是否存在且包含有效配置
     if [ -f /etc/proxychains4.conf ] && grep -q "^socks5.*7890" /etc/proxychains4.conf; then
         # 尝试通过代理访问 google.com 来验证代理是否工作
-        if timeout 10 proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
+        if proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
             return 0
         fi
     fi
@@ -73,8 +73,7 @@ git_with_proxy() {
     git "$@"
 }
 
-# 修改 curl_with_timeout 函数
-curl_with_timeout() {
+# 修改 {
     local url="$1"
     shift  # 移除第一个参数（URL）
     
@@ -85,11 +84,10 @@ curl_with_timeout() {
     
     while [ $attempt -le $retries ]; do
         if curl_with_proxy "$url" \
-            --connect-timeout $CURL_TIMEOUT \
-            --max-time $((CURL_TIMEOUT * 2)) \
+            --connect-            --max-time $((2)) \
             --retry 3 \
             --retry-delay 2 \
-            --retry-max-time $((CURL_TIMEOUT * 3)) \
+            --retry-max-time $((3)) \
             "$@"; then
             return 0
         fi
@@ -271,21 +269,58 @@ install_linuxbrew() {
     log "INFO" "Installing Linuxbrew..."
     
     # 准备安装命令
-    local install_cmd='
+    local install_script=$(cat << 'EOF'
+#!/bin/bash
+
 # 设置环境变量
-$(declare -f setup_brew_env)
-setup_brew_env
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_INSTALL_FROM_API=1
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
 
 # 安装 Homebrew
-cd /tmp && \
-git clone --depth=1 "$HOMEBREW_BREW_GIT_REMOTE" brew-install && \
-/bin/bash brew-install/install.sh && \
+cd /tmp
+git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
+/bin/bash brew-install/install.sh
 rm -rf brew-install
 
 # 配置 Homebrew
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-$(declare -f setup_brew_mirrors)
-setup_brew_mirrors'
+
+# 配置镜像源
+git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
+git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git 2>/dev/null || true
+
+# 添加环境变量配置到 shell 配置文件
+cat << 'SHELLRC' >> "$HOME/.bashrc"
+
+# Homebrew
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# Homebrew Mirrors
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+SHELLRC
+
+# 如果存在 .zshrc，也添加配置
+if [ -f "$HOME/.zshrc" ]; then
+    cat << 'SHELLRC' >> "$HOME/.zshrc"
+
+# Homebrew
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# Homebrew Mirrors
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+SHELLRC
+fi
+EOF
+)
 
     # 如果是 root 用户，切换到普通用户安装
     if [ "$EUID" -eq 0 ]; then
@@ -299,31 +334,37 @@ setup_brew_mirrors'
         log "INFO" "Installing Linuxbrew dependencies..."
         apt-get install -y build-essential procps curl file git gcc
 
-        # 以普通用户身份运行安装命令
+        # 创建临时脚本文件
+        local temp_script=$(mktemp)
+        echo "$install_script" > "$temp_script"
+        chmod +x "$temp_script"
+
+        # 以普通用户身份运行安装脚本
         log "INFO" "Installing Linuxbrew as user: $normal_user"
-        if ! run_as_normal_user "$install_cmd"; then
+        if ! su - "$normal_user" -c "$temp_script"; then
             log "ERROR" "Failed to install Linuxbrew as user: $normal_user"
+            rm -f "$temp_script"
             return 1
         fi
-
-        # 为普通用户添加配置
-        run_as_normal_user "$(declare -f add_brew_config_to_shell); add_brew_config_to_shell '/home/linuxbrew/.linuxbrew'"
+        rm -f "$temp_script"
     else
         # 当前已经是普通用户，直接安装
         log "INFO" "Installing Linuxbrew dependencies..."
         sudo apt-get install -y build-essential procps curl file git gcc
         
+        # 创建临时脚本文件并执行
+        local temp_script=$(mktemp)
+        echo "$install_script" > "$temp_script"
+        chmod +x "$temp_script"
+        
         log "INFO" "Installing Linuxbrew as user: $USER"
-        if ! eval "$install_cmd"; then
+        if ! bash "$temp_script"; then
             log "ERROR" "Failed to install Linuxbrew"
+            rm -f "$temp_script"
             return 1
         fi
-
-        add_brew_config_to_shell '/home/linuxbrew/.linuxbrew'
+        rm -f "$temp_script"
     fi
-
-    # 立即应用环境变量
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
     log "INFO" "Linuxbrew installation completed successfully"
     return 0
@@ -518,7 +559,7 @@ install_docker() {
         
         # 启动 Docker 服务，增加详细日志
         log "INFO" "Starting Docker service..."
-        if ! timeout 60 sudo systemctl start docker; then
+        if ! sudo systemctl start docker; then
             log "ERROR" "Failed to start Docker service"
             log "INFO" "Checking Docker service status..."
             sudo systemctl status docker || true
@@ -529,7 +570,7 @@ install_docker() {
         
         # 验证 Docker 服务是否正常运行
         log "INFO" "Verifying Docker service..."
-        if ! timeout 30 sudo docker info >/dev/null 2>&1; then
+        if ! sudo docker info >/dev/null 2>&1; then
             log "ERROR" "Docker service is not responding"
             sudo systemctl status docker || true
             return 1
@@ -537,7 +578,7 @@ install_docker() {
         
         # 启用 Docker 服务开机自启
         log "INFO" "Enabling Docker service..."
-        if ! timeout 30 sudo systemctl enable docker; then
+        if ! sudo systemctl enable docker; then
             log "ERROR" "Failed to enable Docker service"
             return 1
         fi
@@ -816,7 +857,7 @@ main() {
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
     
-    # 非关键组件，��败可以继续
+    # 非关键组件，败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
     
     # Linuxbrew 和相关工具
@@ -841,5 +882,5 @@ main() {
     log "INFO" "Ubuntu setup completed! Some components might have failed to install, please check the logs for details."
 }
 
-# 执行主函���
+# 执行主函数
 main 
