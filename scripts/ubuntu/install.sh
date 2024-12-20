@@ -29,7 +29,7 @@ check_proxy() {
     # 检查 proxychains4 配置文件是否存在且包含有效配置
     if [ -f /etc/proxychains4.conf ] && grep -q "^socks5.*7890" /etc/proxychains4.conf; then
         # 尝试通过代理访问 google.com 来验证代理是否工作
-        if timeout 5 proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
+        if timeout 10 proxychains4 curl -s -m 5 https://www.google.com >/dev/null 2>&1; then
             return 0
         fi
     fi
@@ -77,7 +77,33 @@ git_with_proxy() {
 curl_with_timeout() {
     local url="$1"
     shift  # 移除第一个参数（URL）
-    curl_with_proxy "$url" --connect-timeout $CURL_TIMEOUT --max-time $((CURL_TIMEOUT * 10)) "$@"
+    
+    # 设置重试次数和重试延迟
+    local retries=3
+    local retry_delay=5
+    local attempt=1
+    
+    while [ $attempt -le $retries ]; do
+        if curl_with_proxy "$url" \
+            --connect-timeout $CURL_TIMEOUT \
+            --max-time $((CURL_TIMEOUT * 2)) \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-max-time $((CURL_TIMEOUT * 3)) \
+            "$@"; then
+            return 0
+        fi
+        
+        log "WARN" "Attempt $attempt of $retries failed for URL: $url"
+        if [ $attempt -lt $retries ]; then
+            log "INFO" "Retrying in $retry_delay seconds..."
+            sleep $retry_delay
+        fi
+        attempt=$((attempt + 1))
+    done
+    
+    log "ERROR" "Failed to download after $retries attempts: $url"
+    return 1
 }
 
 # 配置主机名
@@ -100,10 +126,20 @@ setup_hostname() {
 # 更新系统
 update_system() {
     log "INFO" "Updating system..."
-    if ! timeout $APT_TIMEOUT sudo apt update && timeout $APT_TIMEOUT sudo apt upgrade -y; then
-        log "ERROR" "System update failed"
+    
+    # 更新软件源
+    if ! timeout $APT_TIMEOUT sudo apt update; then
+        log "ERROR" "Failed to update package list"
         return 1
     fi
+    
+    # 升级系统
+    if ! timeout $APT_TIMEOUT sudo apt upgrade -y; then
+        log "ERROR" "Failed to upgrade system packages"
+        return 1
+    fi
+    
+    return 0
 }
 
 # 安装基础工具
@@ -120,6 +156,7 @@ install_basic_tools() {
             log "INFO" "Installing $tool..."
             if ! timeout $APT_TIMEOUT sudo apt install -y "$tool"; then
                 log "ERROR" "Failed to install $tool"
+                continue  # 继续安装其他工具
             fi
         else
             log "INFO" "$tool is already installed, skipping..."
@@ -415,7 +452,7 @@ setup_python() {
         log "INFO" "Configuring Python environment..."
         eval "$(pyenv init -)"
         if ! pyenv versions | grep -q "3.11.4"; then
-            if ! timeout $((CURL_TIMEOUT * 4)) pyenv install 3.11.4; then
+            if ! pyenv install 3.11.4; then
                 log "ERROR" "Failed to install Python 3.11.4"
                 return 1
             fi
@@ -438,21 +475,21 @@ install_docker() {
         
         # 安装 Docker
         log "INFO" "Installing Docker using apt..."
-        if ! sudo -v && sudo apt install -y docker.io containerd; then
+        if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
         
-        # 启动 Docker 服务
+        # 启动 Docker 服务，设置较短的超时时间
         log "INFO" "Starting Docker service..."
-        if ! sudo systemctl start docker; then
+        if ! timeout 30 sudo systemctl start docker; then
             log "ERROR" "Failed to start Docker service"
             return 1
         fi
         
         # 启用 Docker 服务开机自启
         log "INFO" "Enabling Docker service..."
-        if ! sudo systemctl enable docker; then
+        if ! timeout 30 sudo systemctl enable docker; then
             log "ERROR" "Failed to enable Docker service"
             return 1
         fi
@@ -490,16 +527,25 @@ install_docker() {
 install_vscode() {
     if ! check_cmd_exists code; then
         log "INFO" "Installing Visual Studio Code..."
+        
         # 下载并安装 GPG key
         if ! curl_with_timeout https://packages.microsoft.com/keys/microsoft.asc -fsSL | gpg --dearmor > /tmp/packages.microsoft.gpg; then
             log "ERROR" "Failed to download VS Code GPG key"
             return 1
         fi
+        
         sudo install -o root -g root -m 644 /tmp/packages.microsoft.gpg /etc/apt/trusted.gpg.d/
         echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
         rm -f /tmp/packages.microsoft.gpg
         
-        if ! timeout $APT_TIMEOUT sudo apt update && timeout $APT_TIMEOUT sudo apt install -y code; then
+        # 更新软件源
+        if ! timeout $APT_TIMEOUT sudo apt update; then
+            log "ERROR" "Failed to update package list"
+            return 1
+        fi
+        
+        # 安装 VS Code
+        if ! timeout $APT_TIMEOUT sudo apt install -y code; then
             log "ERROR" "Failed to install VS Code"
             return 1
         fi
