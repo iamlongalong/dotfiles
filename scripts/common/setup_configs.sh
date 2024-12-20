@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 获取脚本所在目录的绝对路径
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 echo "Setting up configurations..."
 
 # 创建配置目录
@@ -8,14 +11,14 @@ mkdir -p ~/.vim
 
 # 复制 Vim 配置
 echo "Setting up Vim configuration..."
-cp vimrc ~/.vimrc
+cp "${SCRIPT_DIR}/vimrc" ~/.vimrc
 
 # 复制 Shell 函数和别名
 echo "Setting up Shell functions and aliases..."
 mkdir -p ~/.shell/aliases
-cp functions.sh ~/.shell/
-cp functions_extra.sh ~/.shell/
-cp aliases/kubernetes.sh ~/.shell/aliases/
+cp "${SCRIPT_DIR}/functions.sh" ~/.shell/
+cp "${SCRIPT_DIR}/functions_extra.sh" ~/.shell/
+cp "${SCRIPT_DIR}/aliases/kubernetes.sh" ~/.shell/aliases/
 echo "source ~/.shell/functions.sh" >> ~/.zshrc
 echo "source ~/.shell/functions_extra.sh" >> ~/.zshrc
 echo "source ~/.shell/aliases/kubernetes.sh" >> ~/.zshrc

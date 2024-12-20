@@ -33,6 +33,7 @@ cd dotfiles
 
 2. 运行基础安装脚本：
 ```bash
+chmod +x install.sh
 ./install.sh
 ```
 
@@ -86,42 +87,10 @@ cp scripts/common/vimrc ~/.vimrc
 - Obsidian
 
 ### 需要手动设置的组件
-1. 安装后的环境配置：
+1. setup config
 ```bash
-# 1. 加载 NVM 环境（必需）
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # 加载 nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # 加载 nvm bash 补全
 
-# 安装 Node.js LTS 版本
-nvm install --lts
-nvm use --lts
-
-# 2. 设置 ZSH 环境（必需）
-./scripts/common/setup_zsh.sh
-
-# 3. 设置 Vim 环境（如果需要）
-cp scripts/common/vimrc ~/.vimrc
 ```
-
-2. 验证安装：
-```bash
-# 验证 Node.js 环境
-node --version
-npm --version
-
-# 验证 Python 环境
-python --version
-poetry --version
-
-# 验证 Go 环境
-go version
-```
-
-3. 可能需要的其他操作：
-- 如果使用 zsh，需要将 NVM 配置添加到 `~/.zshrc`
-- 如果使用 bash，配置已自动添加到 `~/.bashrc`
-- 对于 Vim 用户，首次打开 vim 后需要运行 `:PlugInstall` 安装插件
 
 ## 配置说明
 

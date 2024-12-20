@@ -61,10 +61,20 @@ install_homebrew() {
         export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
         export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
         
-        if ! /bin/bash -c "$(curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install/master/install.sh)"; then
-            log "ERROR" "Failed to install Homebrew"
+        # 使用 git clone 方式安装
+        if ! git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install; then
+            log "ERROR" "Failed to clone Homebrew install repository"
             return 1
         fi
+        
+        if ! /bin/bash brew-install/install.sh; then
+            log "ERROR" "Failed to install Homebrew"
+            rm -rf brew-install
+            return 1
+        fi
+        
+        # 清理安装文件
+        rm -rf brew-install
         
         if ! check_cmd_exists brew; then
             log "ERROR" "Homebrew installation verification failed"
