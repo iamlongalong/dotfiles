@@ -5,6 +5,7 @@ setup_v2ray() {
     read -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
+        chmod +x scripts/common/v2ray.sh
         ./scripts/common/v2ray.sh
     fi
 }
