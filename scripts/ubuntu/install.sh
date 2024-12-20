@@ -268,7 +268,7 @@ install_linuxbrew() {
 
     log "INFO" "Installing Linuxbrew..."
     
-    # 准备安装命令 - 使用 git clone 安装方式
+    # 准备安装命�� - 使用 git clone 安装方式
     local install_cmd='
 # 设置环境变量
 export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
@@ -281,7 +281,13 @@ export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bot
 cd /tmp && \
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install && \
 /bin/bash brew-install/install.sh && \
-rm -rf brew-install'
+rm -rf brew-install
+
+# 配置 Homebrew 镜像源
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
+/home/linuxbrew/.linuxbrew/bin/brew tap --custom-remote --force-auto-update homebrew/core https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git && \
+/home/linuxbrew/.linuxbrew/bin/brew tap --custom-remote --force-auto-update homebrew/cask https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git && \
+/home/linuxbrew/.linuxbrew/bin/brew tap --custom-remote --force-auto-update homebrew/bottles https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-bottles.git'
 
     # 如果是 root 用户，切换到普通用户安装
     if [ "$EUID" -eq 0 ]; then
@@ -301,6 +307,22 @@ rm -rf brew-install'
             log "ERROR" "Failed to install Linuxbrew as user: $normal_user"
             return 1
         fi
+
+        # 添加环境变量配置（以普通用户身份）
+        local mirror_config='
+# Homebrew Mirrors
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"'
+
+        # 为普通用户添加配置
+        run_as_normal_user "
+for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
+    if [ -f \"\$config_file\" ] && ! grep -q \"HOMEBREW_BREW_GIT_REMOTE\" \"\$config_file\"; then
+        echo '$mirror_config' >> \"\$config_file\"
+    fi
+done"
     else
         # 当前已经是普通用户，直接安装
         log "INFO" "Installing Linuxbrew dependencies..."
@@ -311,45 +333,22 @@ rm -rf brew-install'
             log "ERROR" "Failed to install Linuxbrew"
             return 1
         fi
-    fi
 
-    # 配置环境变量
-    local shell_config='
-# Homebrew
-if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi'
-
-    # 添加到相关的 shell 配置文件
-    for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
-        if [ -f "$config_file" ] && ! grep -q "homebrew/brew shellenv" "$config_file"; then
-            echo "$shell_config" >> "$config_file"
-        fi
-    done
-
-    # 立即应用环境变量
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" || true
-
-    # 配置 Homebrew 镜像源
-    log "INFO" "Configuring Homebrew mirrors..."
-    brew tap --custom-remote --force-auto-update homebrew/core https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
-    brew tap --custom-remote --force-auto-update homebrew/cask https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git
-    brew tap --custom-remote --force-auto-update homebrew/bottles https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-bottles.git
-
-    # 添加持久化的环境变量配置
-    local mirror_config='
+        # 添加环境变量配置
+        local mirror_config='
 # Homebrew Mirrors
 export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
 export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
 export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
 export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"'
 
-    # 添加镜像源配置到相关的 shell 配置文件
-    for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
-        if [ -f "$config_file" ] && ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
-            echo "$mirror_config" >> "$config_file"
-        fi
-    done
+        # 添加到相关的 shell 配置文件
+        for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
+            if [ -f "$config_file" ] && ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
+                echo "$mirror_config" >> "$config_file"
+            fi
+        done
+    fi
 
     log "INFO" "Linuxbrew installation completed successfully"
     return 0
