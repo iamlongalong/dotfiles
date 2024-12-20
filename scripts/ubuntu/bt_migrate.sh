@@ -77,9 +77,16 @@ do_backup() {
         log_warn "未找到MySQL root密码，跳过数据库备份"
     fi
     
-    # 备份面板配置
+    # 备份面板配置，排除不必要的目录
     log_info "正在备份面板配置..."
     cp -rf /www/server/panel/* $BACKUP_DIR/panel/ 2>/dev/null || true
+    
+    # 清理不需要的目录和文件
+    rm -rf $BACKUP_DIR/panel/pyenv
+    rm -rf $BACKUP_DIR/panel/node
+    rm -rf $BACKUP_DIR/panel/__pycache__
+    rm -rf $BACKUP_DIR/panel/class/__pycache__
+    rm -rf $BACKUP_DIR/panel/logs/*
     
     # 备份SSL证书
     log_info "正在备份SSL证书..."
@@ -168,7 +175,7 @@ install_bt_panel() {
     sleep 5
 }
 
-# 恢复函数
+# 恢��函数
 do_restore() {
     local TEMP_DIR="/tmp/btpanel_restore"
     local BACKUP_FILE="/root/btpanel_backup.tar.gz"
