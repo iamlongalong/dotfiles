@@ -624,7 +624,7 @@ setup_zsh() {
 main() {
     # 系统关键组件，失败需要退出
     setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
-    update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
+    # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
     
     # 非关键组件，失败可以继续
