@@ -14,6 +14,9 @@ echo "Absolute script directory: ${SCRIPT_DIR}"
 # 导入工具函数
 source "${SCRIPT_DIR}/../common/utils.sh"
 
+# 导入共享函数
+source "${SCRIPT_DIR}/../common/homebrew.sh"
+
 # 设置超时时间（秒）
 CURL_TIMEOUT=30
 BREW_INSTALL_TIMEOUT=600  # 10分钟
@@ -56,14 +59,11 @@ install_homebrew() {
             return 1
         fi
         
-        # 使用清华大学镜像源安装 Homebrew
-        export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
-        export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
-        export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
-        export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+        # 设置环境变量
+        setup_brew_env
         
         # 使用 git clone 方式安装
-        if ! git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install; then
+        if ! git clone --depth=1 "$HOMEBREW_BREW_GIT_REMOTE" brew-install; then
             log "ERROR" "Failed to clone Homebrew install repository"
             return 1
         fi
@@ -74,7 +74,6 @@ install_homebrew() {
             return 1
         fi
         
-        # 清理安装文件
         rm -rf brew-install
         
         if ! check_cmd_exists brew; then
@@ -82,46 +81,14 @@ install_homebrew() {
             return 1
         fi
 
-        # 配置 Homebrew 镜像源
-        log "INFO" "Configuring Homebrew mirrors..."
-        brew tap --custom-remote --force-auto-update homebrew/core https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
-        brew tap --custom-remote --force-auto-update homebrew/cask https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git
-        brew tap --custom-remote --force-auto-update homebrew/bottles https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-bottles.git
-
-        # 添加持久化的环境变量配置
-        local mirror_config='
-# Homebrew Mirrors
-export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
-export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
-export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
-export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"'
-
-        # 添加镜像源配置到相关的 shell 配置文件
-        for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
-            if [ -f "$config_file" ] && ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
-                echo "$mirror_config" >> "$config_file"
-            fi
-        done
+        # 配置 Homebrew
+        setup_brew_mirrors
+        add_brew_config_to_shell "/usr/local"
     else
         log "INFO" "Homebrew is already installed, skipping..."
     fi
 }
 
-# 配置 Homebrew
-setup_homebrew() {
-    if check_cmd_exists brew; then
-        log "INFO" "Configuring Homebrew mirrors..."
-        git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
-        git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
-        git -C "$(brew --repo homebrew/cask)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git || true
-        
-        log "INFO" "Updating Homebrew..."
-        if ! timeout $BREW_INSTALL_TIMEOUT brew update; then
-            log "ERROR" "Failed to update Homebrew"
-            return 1
-        fi
-    fi
-}
 
 # 安装基础工具
 install_basic_tools() {
