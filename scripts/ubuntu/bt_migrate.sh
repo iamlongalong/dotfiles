@@ -282,8 +282,6 @@ main() {
         restore)
             check_root
             check_command tar
-            check_command mysql
-            check_command mysqldump
             do_restore
             ;;
         version)
