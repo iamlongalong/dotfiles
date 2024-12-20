@@ -243,7 +243,7 @@ install_nvm() {
         [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
         
         # 安装 Node.js LTS
-        if ! timeout $((CURL_TIMEOUT * 2)) nvm install --lts; then
+        if ! nvm install --lts; then
             log "ERROR" "Failed to install Node.js LTS"
             return 1
         fi
@@ -282,10 +282,18 @@ setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
         chmod +x "${SCRIPT_DIR}/../common/setup_mkcert.sh"
-        if ! timeout $((CURL_TIMEOUT * 2)) "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
+        if ! "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
             log "ERROR" "Failed to setup mkcert"
             return 1
         fi
+    fi
+}
+
+setup_zsh() {
+    chmod +x "${SCRIPT_DIR}/../common/setup_zsh.sh"
+    if ! "${SCRIPT_DIR}/../common/setup_zsh.sh"; then
+        log "ERROR" "Failed to setup zsh"
+        return 1
     fi
 }
 
@@ -378,9 +386,6 @@ main() {
     setup_git || log "WARN" "Git setup failed but continuing..."
     
     log "INFO" "macOS setup completed!"
-    log "INFO" "Please use chezmoi to manage your dotfiles:"
-    log "INFO" "1. Initialize: chezmoi init <your-dotfiles-repo>"
-    log "INFO" "2. Apply: chezmoi apply"
 }
 
 # 执行主函数

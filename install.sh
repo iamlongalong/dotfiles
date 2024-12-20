@@ -112,6 +112,7 @@ main() {
     log "INFO" "Setting up permissions..."
     chmod +x scripts/macos/install.sh
     chmod +x scripts/ubuntu/install.sh
+    chmod +x scripts/common/setup_configs.sh
     
     # 获取操作系统
     OS=$(detect_os)
@@ -122,10 +123,12 @@ main() {
         "macos")
             log "INFO" "Running macOS setup..."
             ./scripts/macos/install.sh
+            ./scripts/common/setup_configs.sh
             ;;
         "ubuntu")
             log "INFO" "Running Ubuntu setup..."
             ./scripts/ubuntu/install.sh
+            ./scripts/common/setup_configs.sh
             ;;
         *)
             log "ERROR" "Unsupported operating system: $OS"
