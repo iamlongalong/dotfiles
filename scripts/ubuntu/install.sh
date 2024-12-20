@@ -168,7 +168,7 @@ EOF
 
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户���通常是主用户
+    # 获取第一个非 root 的用户通常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -213,7 +213,7 @@ brew_as_user() {
         return $?
     fi
     
-    # 否则，使用 su 切换到目标用户运���命令
+    # 否则，使用 su 切换到目标用户运行命令
     log "INFO" "Running brew command as user: $normal_user"
     su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
     return $?
@@ -437,13 +437,9 @@ install_docker() {
     if ! check_cmd_exists docker; then
         log "INFO" "Installing Docker..."
         
-        # 移除旧版本（如果存在）
-        log "INFO" "Removing old Docker versions if they exist..."
-        sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
-        
         # 安装 Docker
         log "INFO" "Installing Docker using apt..."
-        if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
+        if ! sudo -v && sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
@@ -488,7 +484,6 @@ install_docker() {
         fi
     fi
     
-    # 继续执行后续步骤
     return 0
 }
 
