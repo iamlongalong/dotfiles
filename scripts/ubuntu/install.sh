@@ -91,18 +91,25 @@ setup_hostname() {
 update_system() {
     log "INFO" "Updating system..."
     
+    # 临时禁用代理
+    local old_proxy_settings=$(disable_proxy)
+    
     # 更新软件源
     if ! sudo apt update; then
+        restore_proxy "$old_proxy_settings"
         log "ERROR" "Failed to update package list"
         return 1
     fi
     
     # 升级系统
     if ! sudo apt upgrade -y; then
+        restore_proxy "$old_proxy_settings"
         log "ERROR" "Failed to upgrade system packages"
         return 1
     fi
     
+    # 恢复代理设置
+    restore_proxy "$old_proxy_settings"
     return 0
 }
 
@@ -118,6 +125,9 @@ install_basic_tools() {
     # 设置 trap 以确保清理工作
     trap 'exit 130' INT
     
+    # 临时禁用代理
+    local old_proxy_settings=$(disable_proxy)
+    
     for tool in "${tools[@]}"; do
         if ! check_cmd_exists "$tool"; then
             log "INFO" "Installing $tool..."
@@ -129,6 +139,9 @@ install_basic_tools() {
             log "INFO" "$tool is already installed, skipping..."
         fi
     done
+    
+    # 恢复代理设置
+    restore_proxy "$old_proxy_settings"
 }
 
 # 配置 proxychains4
@@ -216,7 +229,7 @@ export HOMEBREW_INSTALL_FROM_API=1
 export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
 export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
 
-# ��装 Homebrew
+# 安装 Homebrew
 cd /tmp
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
 /bin/bash brew-install/install.sh
@@ -523,7 +536,7 @@ install_docker() {
             current_user=$(get_normal_user)
         fi
         
-        # 将用户添加到 docker 组
+        # 将用户添加�� docker 组
         log "INFO" "Adding user $current_user to docker group..."
         if ! sudo usermod -aG docker "$current_user"; then
             log "ERROR" "Failed to add user to docker group"
@@ -555,8 +568,12 @@ install_vscode() {
     if ! check_cmd_exists code; then
         log "INFO" "Installing Visual Studio Code..."
         
+        # 临时禁用代理
+        local old_proxy_settings=$(disable_proxy)
+        
         # 下载并安装 GPG key
         if ! curl_with_timeout https://packages.microsoft.com/keys/microsoft.asc -fsSL | gpg --dearmor > /tmp/packages.microsoft.gpg; then
+            restore_proxy "$old_proxy_settings"
             log "ERROR" "Failed to download VS Code GPG key"
             return 1
         fi
@@ -567,15 +584,20 @@ install_vscode() {
         
         # 更新软件源
         if ! sudo apt update; then
+            restore_proxy "$old_proxy_settings"
             log "ERROR" "Failed to update package list"
             return 1
         fi
         
         # 安装 VS Code
         if ! sudo apt install -y code; then
+            restore_proxy "$old_proxy_settings"
             log "ERROR" "Failed to install VS Code"
             return 1
         fi
+        
+        # 恢复代理设置
+        restore_proxy "$old_proxy_settings"
     else
         log "INFO" "VS Code is already installed, skipping..."
     fi
@@ -585,10 +607,17 @@ install_vscode() {
 install_zsh() {
     if ! check_cmd_exists zsh; then
         log "INFO" "Installing Zsh..."
+        # 临时禁用代理
+        local old_proxy_settings=$(disable_proxy)
+        
         if ! sudo apt install -y zsh; then
+            restore_proxy "$old_proxy_settings"
             log "ERROR" "Failed to install Zsh"
             return 1
         fi
+        
+        # 恢复代理设置
+        restore_proxy "$old_proxy_settings"
     else
         log "INFO" "Zsh is already installed, skipping..."
     fi
@@ -648,7 +677,7 @@ install_nps() {
             "https://github.com/ehang-io/nps/releases/download/${nps_version}/${nps_file}"  # GitHub源
         )
         
-        # 尝试���不同源下载
+        # 尝试不同源下载
         local download_success=false
         for url in "${download_urls[@]}"; do
             log "INFO" "Trying to download from: $url"
@@ -770,6 +799,46 @@ EOF
     return 0
 }
 
+# 检查代理是否工作
+check_proxy() {
+    # 尝试通过代理访问 Google
+    if proxychains4 curl -s --connect-timeout 5 https://www.google.com >/dev/null 2>&1; then
+        return 0
+    fi
+    # 尝试通过代理访问 GitHub
+    if proxychains4 curl -s --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# 临时禁用代理的函数
+disable_proxy() {
+    # 保存当前的代理设置
+    local old_http_proxy="$http_proxy"
+    local old_https_proxy="$https_proxy"
+    local old_all_proxy="$all_proxy"
+    
+    # 清除代理设置
+    unset http_proxy
+    unset https_proxy
+    unset all_proxy
+    
+    # 返回旧的设置（通过 echo）
+    echo "$old_http_proxy:$old_https_proxy:$old_all_proxy"
+}
+
+# 恢复代理设置
+restore_proxy() {
+    local old_settings="$1"
+    IFS=':' read -r http https all <<< "$old_settings"
+    
+    # 恢复之前的代理设置
+    [ -n "$http" ] && export http_proxy="$http"
+    [ -n "$https" ] && export https_proxy="$https"
+    [ -n "$all" ] && export all_proxy="$all"
+}
+
 # 主函数
 main() {
     # 系统关键组件，失败需退出
@@ -777,7 +846,7 @@ main() {
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
     
-    # 非关键组件，败可以继续
+    # 非关键组件，失败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
     
     # Linuxbrew 和相关工具
