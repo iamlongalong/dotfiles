@@ -127,7 +127,7 @@ install_bt_panel() {
     if [ -f "/www/server/panel/class/common.py" ]; then
         log_info "宝塔面板已安装，跳过安装步骤"
         return 0
-    }
+    fi
     
     get_os_info
     
