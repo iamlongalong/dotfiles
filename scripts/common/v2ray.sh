@@ -133,22 +133,9 @@ install_v2ray() {
     # 检查是否已安装
     if ! command -v v2ray &> /dev/null; then
         echo "正在安装 V2Ray..."
-        # 添加 V2Ray 官方软件源
-        sudo apt update
-        sudo apt install -y curl gnupg
-        curl https://apt.v2fly.org/pub.gpg | sudo apt-key add -
-        echo "deb https://apt.v2fly.org/ stable main" | sudo tee /etc/apt/sources.list.d/v2ray.list
-        
-        # 更新软件源并安装
+        # 直接使用 apt 安装
         sudo apt update
         sudo apt install -y v2ray
-        
-        # 安装完成后移除软件源
-        echo "移除 V2Ray 软件源..."
-        sudo rm /etc/apt/sources.list.d/v2ray.list
-        # 获取并删除 V2Ray 相关的所有密钥
-        apt-key list | grep -B 1 "v2fly" | grep pub | awk '{print $2}' | cut -d'/' -f2 | xargs -I {} sudo apt-key del {}
-        sudo apt update
     else
         echo "V2Ray 已经安装"
     fi
