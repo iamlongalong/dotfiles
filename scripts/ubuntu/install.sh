@@ -289,36 +289,25 @@ rm -rf brew-install
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 # 配置镜像源
-git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
-git -C "$(/home/linuxbrew/.linuxbrew/bin/brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git 2>/dev/null || true
+brew_path="/home/linuxbrew/.linuxbrew"
+git -C "$brew_path" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
+git -C "$brew_path/Library/Taps/homebrew/homebrew-core" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git 2>/dev/null || true
 
 # 添加环境变量配置到 shell 配置文件
-cat << 'SHELLRC' >> "$HOME/.bashrc"
-
-# Homebrew
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+shell_config="# Homebrew
+eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
 
 # Homebrew Mirrors
-export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
-export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
-export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
-export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
-SHELLRC
+export HOMEBREW_BREW_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git\"
+export HOMEBREW_CORE_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git\"
+export HOMEBREW_BOTTLE_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles\"
+export HOMEBREW_API_DOMAIN=\"https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api\""
 
-# 如果存在 .zshrc，也添加配置
-if [ -f "$HOME/.zshrc" ]; then
-    cat << 'SHELLRC' >> "$HOME/.zshrc"
-
-# Homebrew
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
-# Homebrew Mirrors
-export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
-export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
-export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
-export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
-SHELLRC
-fi
+for config_file in ~/.bashrc ~/.zshrc; do
+    if [ -f "$config_file" ] && ! grep -q "brew shellenv" "$config_file"; then
+        echo "$shell_config" >> "$config_file"
+    fi
+done
 EOF
 )
 
