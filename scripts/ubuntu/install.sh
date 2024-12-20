@@ -268,7 +268,7 @@ install_linuxbrew() {
 
     log "INFO" "Installing Linuxbrew..."
     
-    # 准备安装命�� - 使用 git clone 安装方式
+    # 准备安装命令 - 使用 git clone 安装方式
     local install_cmd='
 # 设置环境变量
 export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
@@ -329,6 +329,27 @@ fi'
 
     # 立即应用环境变量
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" || true
+
+    # 配置 Homebrew 镜像源
+    log "INFO" "Configuring Homebrew mirrors..."
+    brew tap --custom-remote --force-auto-update homebrew/core https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
+    brew tap --custom-remote --force-auto-update homebrew/cask https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git
+    brew tap --custom-remote --force-auto-update homebrew/bottles https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-bottles.git
+
+    # 添加持久化的环境变量配置
+    local mirror_config='
+# Homebrew Mirrors
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"'
+
+    # 添加镜像源配置到相关的 shell 配置文件
+    for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
+        if [ -f "$config_file" ] && ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
+            echo "$mirror_config" >> "$config_file"
+        fi
+    done
 
     log "INFO" "Linuxbrew installation completed successfully"
     return 0
@@ -664,6 +685,148 @@ setup_zsh() {
     fi
 }
 
+# 安装 NPS
+install_nps() {
+    if ! check_cmd_exists nps; then
+        log "INFO" "Installing NPS..."
+        
+        # 创建安装目录
+        sudo mkdir -p /usr/local/nps
+        cd /usr/local/nps || return 1
+        
+        # 下载最新版本的 NPS
+        local nps_version="v0.26.10"
+        local nps_file="linux_amd64_server.tar.gz"
+        
+        # 定义多个下载源
+        local download_urls=(
+            "https://gitee.com/mirrors/nps/releases/download/${nps_version}/${nps_file}"  # Gitee镜像
+            "https://hub.gitmirror.com/https://github.com/ehang-io/nps/releases/download/${nps_version}/${nps_file}"  # GitMirror镜像
+            "https://github.com/ehang-io/nps/releases/download/${nps_version}/${nps_file}"  # GitHub源
+        )
+        
+        # 尝试从不同源下载
+        local download_success=false
+        for url in "${download_urls[@]}"; do
+            log "INFO" "Trying to download from: $url"
+            if curl_with_timeout "$url" -L -o "$nps_file"; then
+                download_success=true
+                break
+            else
+                log "WARN" "Failed to download from: $url, trying next source..."
+            fi
+        done
+        
+        if [ "$download_success" = false ]; then
+            log "ERROR" "Failed to download NPS from all sources"
+            return 1
+        fi
+        
+        # 解压文件
+        if ! tar xzf "$nps_file"; then
+            log "ERROR" "Failed to extract NPS"
+            return 1
+        fi
+        
+        # 清理下载文件
+        rm -f "$nps_file"
+        
+        # 创建配置文件目录
+        sudo mkdir -p /etc/nps
+        
+        # 创建基础配置文件
+        sudo tee /etc/nps/conf/nps.conf > /dev/null << EOF
+appname = nps
+#Boot mode(dev|pro)
+runmode = pro
+
+#HTTP(S) proxy port, no startup if empty
+http_proxy_ip=0.0.0.0
+http_proxy_port=80
+https_proxy_port=443
+https_just_proxy=true
+#default https certificate setting
+https_default_cert_file=/etc/nps/conf/server.pem
+https_default_key_file=/etc/nps/conf/server.key
+
+##bridge
+bridge_type=tcp
+bridge_port=8024
+bridge_ip=0.0.0.0
+
+# Public password, which clients can use to connect to the server
+# After the connection, the server will be able to open relevant ports and parse related domain names according to its own configuration file.
+public_vkey=123
+
+#Traffic data persistence interval(minute)
+web_username=admin
+web_password=123
+web_port = 8080
+web_ip=0.0.0.0
+web_base_url=
+web_open_ssl=false
+web_cert_file=conf/server.pem
+web_key_file=conf/server.key
+EOF
+        
+        # 创建服务文件
+        sudo tee /etc/systemd/system/nps.service > /dev/null << EOF
+[Unit]
+Description=NPS Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/nps/nps
+WorkingDirectory=/etc/nps
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        
+        # 复制配置文件到正确位置
+        sudo cp -r /usr/local/nps/conf /etc/nps/
+        
+        # 重新加载 systemd
+        sudo systemctl daemon-reload
+        
+        # 启动 NPS 服务
+        if ! sudo systemctl start nps; then
+            log "ERROR" "Failed to start NPS service"
+            return 1
+        fi
+        
+        # 设置开机自启
+        if ! sudo systemctl enable nps; then
+            log "ERROR" "Failed to enable NPS service"
+            return 1
+        fi
+        
+        log "INFO" "NPS installation completed"
+        log "INFO" "Web dashboard is available at http://localhost:8080"
+        log "INFO" "Default username: admin"
+        log "INFO" "Default password: 123"
+        log "INFO" "Default public vkey: 123"
+        log "INFO" "Please change these default values in /etc/nps/conf/nps.conf for security"
+    else
+        log "INFO" "NPS is already installed, skipping..."
+        
+        # 检查服务状态
+        if ! sudo systemctl is-active nps >/dev/null 2>&1; then
+            log "WARN" "NPS service is not running, attempting to start..."
+            if ! sudo systemctl start nps; then
+                log "ERROR" "Failed to start existing NPS service"
+                sudo systemctl status nps || true
+                return 1
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
 # 主函数
 main() {
     # 系统关键组件，失败需要退出
@@ -686,6 +849,7 @@ main() {
     install_go || log "WARN" "Go installation failed but continuing..."
     setup_python || log "WARN" "Python setup failed but continuing..."
     install_docker || log "WARN" "Docker installation failed but continuing..."
+    install_nps || log "WARN" "NPS installation failed but continuing..."
     install_vscode || log "WARN" "VS Code installation failed but continuing..."
     install_zsh || log "WARN" "Zsh installation failed but continuing..."
     # install_vim_plug || log "WARN" "Vim-plug installation failed but continuing..."
