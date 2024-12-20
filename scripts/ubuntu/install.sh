@@ -168,7 +168,7 @@ EOF
 
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户���常是主用户
+    # 获取第一个非 root 的用户常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -213,7 +213,7 @@ brew_as_user() {
         return $?
     fi
     
-    # 否则，使用 su 切换到目标用户运行���令
+    # 否则，使用 su 切换到目标用户运行命令
     log "INFO" "Running brew command as user: $normal_user"
     su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
     return $?
@@ -223,6 +223,13 @@ brew_as_user() {
 install_linuxbrew() {
     if ! check_cmd_exists brew; then
         log "INFO" "Installing Linuxbrew..."
+        
+        # 准备安装命令 - 使用清华源
+        local install_cmd='export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install/HEAD/install.sh)"'
         
         # 如果是 root 用户，切换到普通用户安装
         if [ "$EUID" -eq 0 ]; then
@@ -235,9 +242,6 @@ install_linuxbrew() {
             # 安装依赖
             log "INFO" "Installing Linuxbrew dependencies..."
             apt-get install -y build-essential procps curl file git
-            
-            # 准备安装命令
-            local install_cmd='NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
             
             # 以普通用户身份运行安装命令
             log "INFO" "Installing Linuxbrew as user: $normal_user"
@@ -276,21 +280,16 @@ git_with_proxy -C "$(brew --repo homebrew/core)" remote set-url origin https://m
             log "INFO" "Installing Linuxbrew dependencies..."
             sudo apt-get install -y build-essential procps curl file git
             
-            # 下载并安装 Linuxbrew
-            NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
-                log "ERROR" "Failed to install Linuxbrew"
-                return 1
-            }
-            
-            # 检查安装结果
-            if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
-                log "ERROR" "Linuxbrew installation failed - directory not found"
+            # 以普通用户身份运行安装命令
+            log "INFO" "Installing Linuxbrew as user: $USER"
+            if ! run_as_normal_user "$install_cmd"; then
+                log "ERROR" "Failed to install Linuxbrew as user: $USER"
                 return 1
             fi
             
             # 配置环境变量
-            test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
-            test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            local config_cmd='test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"; test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+            run_as_normal_user "$config_cmd"
             
             # 添加到 shell 配置文件
             local shell_config='
