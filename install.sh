@@ -5,7 +5,6 @@ setup_v2ray() {
     read -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        chmod +x scripts/common/v2ray.sh
         ./scripts/common/v2ray.sh
     fi
 }
@@ -110,9 +109,6 @@ main() {
     
     # 设置权限
     log "INFO" "Setting up permissions..."
-    chmod +x scripts/macos/install.sh
-    chmod +x scripts/ubuntu/install.sh
-    chmod +x scripts/common/setup_configs.sh
     
     # 获取操作系统
     OS=$(detect_os)

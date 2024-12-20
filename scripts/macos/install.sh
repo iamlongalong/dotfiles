@@ -281,7 +281,6 @@ setup_git() {
 setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
-        chmod +x "${SCRIPT_DIR}/../common/setup_mkcert.sh"
         if ! "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
             log "ERROR" "Failed to setup mkcert"
             return 1
@@ -290,7 +289,6 @@ setup_mkcert() {
 }
 
 setup_zsh() {
-    chmod +x "${SCRIPT_DIR}/../common/setup_zsh.sh"
     if ! "${SCRIPT_DIR}/../common/setup_zsh.sh"; then
         log "ERROR" "Failed to setup zsh"
         return 1

@@ -26,12 +26,10 @@ vim +PlugInstall +qall
 
 # 设置 Node.js 环境
 echo "Setting up Node.js environment..."
-chmod +x node_setup.sh
 ./node_setup.sh
 
 # 设置 Python 环境
 echo "Setting up Python environment..."
-chmod +x python_setup.sh
 ./python_setup.sh
 
 # 创建常用目录

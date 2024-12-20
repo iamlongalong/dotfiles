@@ -510,6 +510,15 @@ install_docker() {
     if ! check_cmd_exists docker; then
         log "INFO" "Installing Docker..."
         
+        # 先停止可能存在的 Docker 服务
+        log "INFO" "Stopping any existing Docker service..."
+        sudo systemctl stop docker || true
+        
+        # 清理可能存在的旧安装
+        log "INFO" "Removing any existing Docker installations..."
+        sudo apt remove --purge -y docker.io docker-engine docker containerd runc || true
+        sudo rm -rf /var/lib/docker /etc/docker
+        
         # 安装 Docker
         log "INFO" "Installing Docker using apt..."
         if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
@@ -517,10 +526,33 @@ install_docker() {
             return 1
         fi
         
-        # 启动 Docker 服务，设置较短的超时时间
+        # 检查安装结果
+        log "INFO" "Verifying Docker installation..."
+        if ! dpkg -l | grep -q docker.io; then
+            log "ERROR" "Docker package not found after installation"
+            return 1
+        fi
+        
+        # 启动 Docker 服务前检查系统状态
+        log "INFO" "Checking system status before starting Docker..."
+        sudo systemctl status containerd || true
+        
+        # 启动 Docker 服务，增加详细日志
         log "INFO" "Starting Docker service..."
-        if ! timeout 30 sudo systemctl start docker; then
+        if ! timeout 60 sudo systemctl start docker; then
             log "ERROR" "Failed to start Docker service"
+            log "INFO" "Checking Docker service status..."
+            sudo systemctl status docker || true
+            log "INFO" "Checking Docker logs..."
+            sudo journalctl -u docker --no-pager -n 50 || true
+            return 1
+        fi
+        
+        # 验证 Docker 服务是否正常运行
+        log "INFO" "Verifying Docker service..."
+        if ! timeout 30 sudo docker info >/dev/null 2>&1; then
+            log "ERROR" "Docker service is not responding"
+            sudo systemctl status docker || true
             return 1
         fi
         
@@ -553,7 +585,11 @@ install_docker() {
         # 检查 Docker 服务状态
         if ! sudo systemctl is-active docker >/dev/null 2>&1; then
             log "WARN" "Docker service is not running, attempting to start..."
-            sudo systemctl start docker
+            if ! sudo systemctl start docker; then
+                log "ERROR" "Failed to start existing Docker service"
+                sudo systemctl status docker || true
+                return 1
+            fi
         fi
     fi
     
@@ -637,7 +673,6 @@ setup_git() {
 setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
-        chmod +x "${SCRIPT_DIR}/../common/setup_mkcert.sh"
         if ! "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
             log "ERROR" "Failed to setup mkcert"
             return 1
@@ -647,7 +682,6 @@ setup_mkcert() {
 
 # setup zsh
 setup_zsh() {
-    chmod +x "${SCRIPT_DIR}/../common/setup_zsh.sh"
     if ! "${SCRIPT_DIR}/../common/setup_zsh.sh"; then
         log "ERROR" "Failed to setup zsh"
         return 1
