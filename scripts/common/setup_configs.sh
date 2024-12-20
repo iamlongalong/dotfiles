@@ -36,8 +36,8 @@ chmod +x python_setup.sh
 
 # 创建常用目录
 echo "Creating common directories..."
-mkdir -p ~/code/{go,python,javascript,tools}
-mkdir -p ~/scripts
-mkdir -p ~/docs
+mkdir -p ~/code/{python,javascript,tools}
+mkdir -p ~/.scripts
+mkdir -p ~/go/src/{gay,long}
 
 echo "Configuration setup completed!" 

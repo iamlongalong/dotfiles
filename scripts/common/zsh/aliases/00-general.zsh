@@ -23,9 +23,10 @@ alias g='git'
 
 # 目录快捷方式
 alias cdgo="cd ~/go/src"
+alias cdgay="cd ~/go/src/gay"
+alias cdlong="cd ~/go/src/long"
 alias cdcode="cd ~/code"
-alias cddocs="cd ~/docs"
-alias cdscripts="cd ~/scripts"
+alias cdscripts="cd ~/.scripts"
 
 # 系统工具
 alias ports='netstat -tulanp'

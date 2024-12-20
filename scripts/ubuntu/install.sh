@@ -2,8 +2,17 @@
 
 echo "Starting Ubuntu setup..."
 
+# 显示路径信息
+echo "Current working directory: $(pwd)"
+echo "Script path: ${BASH_SOURCE[0]}"
+echo "Script directory: $( dirname "${BASH_SOURCE[0]}" )"
+
+# 获取脚本所在目录的绝对路径
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+echo "Absolute script directory: ${SCRIPT_DIR}"
+
 # 导入工具函数
-source ../common/utils.sh
+source "${SCRIPT_DIR}/../common/utils.sh"
 
 # 设置超时时间（秒）
 CURL_TIMEOUT=30

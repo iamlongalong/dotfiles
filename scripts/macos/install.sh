@@ -2,8 +2,17 @@
 
 echo "Starting macOS setup..."
 
+# 显示路径信息
+echo "Current working directory: $(pwd)"
+echo "Script path: ${BASH_SOURCE[0]}"
+echo "Script directory: $( dirname "${BASH_SOURCE[0]}" )"
+
+# 获取脚本所在目录的绝对路径
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+echo "Absolute script directory: ${SCRIPT_DIR}"
+
 # 导入工具函数
-source ../common/utils.sh
+source "${SCRIPT_DIR}/../common/utils.sh"
 
 # 设置超时时间（秒）
 CURL_TIMEOUT=30
@@ -32,6 +41,7 @@ setup_hostname() {
             sudo scutil --set HostName "$hostname"
             sudo scutil --set LocalHostName "$hostname"
             log "INFO" "Hostname has been updated to: $hostname"
+            log "INFO" "Please reboot for changes to take full effect."
         fi
     fi
 }
@@ -40,8 +50,22 @@ setup_hostname() {
 install_homebrew() {
     if ! check_cmd_exists brew; then
         log "INFO" "Installing Homebrew..."
+        
+        # 检查是否是 root 用户
+        if [ "$EUID" -eq 0 ]; then
+            log "ERROR" "Homebrew must not be run under sudo"
+            return 1
+        fi
+        
+        # 下载并安装 Homebrew
         if ! curl_with_timeout -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash; then
             log "ERROR" "Failed to install Homebrew"
+            return 1
+        fi
+        
+        # 验证安装
+        if ! check_cmd_exists brew; then
+            log "ERROR" "Homebrew installation verification failed"
             return 1
         fi
     else
@@ -53,9 +77,9 @@ install_homebrew() {
 setup_homebrew() {
     if check_cmd_exists brew; then
         log "INFO" "Configuring Homebrew mirrors..."
-        git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git
-        git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
-        git -C "$(brew --repo homebrew/cask)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git
+        git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
+        git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
+        git -C "$(brew --repo homebrew/cask)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git || true
         
         log "INFO" "Updating Homebrew..."
         if ! timeout $BREW_INSTALL_TIMEOUT brew update; then
@@ -173,22 +197,18 @@ install_oh_my_zsh() {
             log "ERROR" "Failed to install Oh My Zsh"
             return 1
         fi
+        
+        # 安装插件
+        log "INFO" "Installing Zsh plugins..."
+        local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
+        if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
+            git clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
+        fi
+        if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
+            git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
+        fi
     else
         log "INFO" "Oh My Zsh is already installed, skipping..."
-    fi
-}
-
-# 安装 Zsh 插件
-install_zsh_plugins() {
-    log "INFO" "Installing Zsh plugins..."
-    local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
-    
-    if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
-        git clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions"
-    fi
-    
-    if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
-        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
     fi
 }
 
@@ -236,15 +256,15 @@ install_nvm() {
 # 配置 Git
 setup_git() {
     log "INFO" "Configuring Git..."
-    cp ../common/gitconfig ~/.gitconfig
+    cp "${SCRIPT_DIR}/../common/gitconfig" ~/.gitconfig
 }
 
 # 设置 mkcert
 setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
-        chmod +x ../common/setup_mkcert.sh
-        if ! timeout $((CURL_TIMEOUT * 2)) ../common/setup_mkcert.sh; then
+        chmod +x "${SCRIPT_DIR}/../common/setup_mkcert.sh"
+        if ! timeout $((CURL_TIMEOUT * 2)) "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
             log "ERROR" "Failed to setup mkcert"
             return 1
         fi
@@ -262,7 +282,6 @@ main() {
     install_basic_casks
     install_optional_apps
     install_oh_my_zsh
-    install_zsh_plugins
     install_vim_plug
     install_nvm
     setup_git
@@ -272,4 +291,4 @@ main() {
 }
 
 # 执行主函数
-main 
+main
