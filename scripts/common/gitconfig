@@ -1,7 +1,3 @@
-[user]
-    name = {{ .git.name }}
-    email = {{ .git.email }}
-
 [core]
     editor = vim
     quotepath = false

@@ -168,7 +168,7 @@ EOF
 
 # 获取普通用户名
 get_normal_user() {
-    # 获取第一个非 root 的用户通常是主用户
+    # 获取第一个非 root 的用户，通常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
         # 如果 who 命令没有结果，尝试从 /home 目录获取
@@ -436,17 +436,15 @@ setup_python() {
 install_docker() {
     if ! check_cmd_exists docker; then
         log "INFO" "Installing Docker..."
-        if ! curl_with_timeout -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg; then
-            log "ERROR" "Failed to download Docker GPG key"
-            return 1
-        fi
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        
-        if ! timeout $APT_TIMEOUT sudo apt update && timeout $APT_TIMEOUT sudo apt install -y docker-ce docker-ce-cli containerd.io; then
+        if ! timeout $APT_TIMEOUT sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
+        
+        # 将当前用户添加到 docker 组
         sudo usermod -aG docker $USER
+        log "INFO" "Added $USER to docker group"
+        log "INFO" "Please log out and log back in for docker group changes to take effect"
     else
         log "INFO" "Docker is already installed, skipping..."
     fi
@@ -523,6 +521,13 @@ install_vim_plug() {
 setup_git() {
     log "INFO" "Configuring Git..."
     cp ../common/gitconfig ~/.gitconfig
+    # set git user name and email
+    read -p "Enter your Git user name(empty to skip): " git_user_name
+    read -p "Enter your Git email(empty to skip): " git_user_email
+    if [ -n "$git_user_name" ] && [ -n "$git_user_email" ]; then
+        git config --global user.name "$git_user_name"
+        git config --global user.email "$git_user_email"
+    fi
 }
 
 # 设置 mkcert
