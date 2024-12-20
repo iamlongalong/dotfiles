@@ -249,26 +249,13 @@ EOF
             return 1
         fi
         
-        # 临时禁用代理
-        local old_http_proxy="$http_proxy"
-        local old_https_proxy="$https_proxy"
-        unset http_proxy
-        unset https_proxy
-        
         # 安装依赖
         log "INFO" "Installing Linuxbrew dependencies..."
         if ! apt-get install -y build-essential procps curl file git gcc; then
             log "ERROR" "Failed to install dependencies"
-            # 恢复代理设置
-            export http_proxy="$old_http_proxy"
-            export https_proxy="$old_https_proxy"
             return 1
         fi
         
-        # 恢复代理设置
-        export http_proxy="$old_http_proxy"
-        export https_proxy="$old_https_proxy"
-
         # 创建临时脚本文件
         local temp_script="/tmp/install_homebrew_$normal_user.sh"
         echo "$install_script" > "$temp_script"
@@ -287,22 +274,12 @@ EOF
         # 当前已经是普通用户，直接安装
         log "INFO" "Installing Linuxbrew dependencies..."
         # 临时禁用代理
-        local old_http_proxy="$http_proxy"
-        local old_https_proxy="$https_proxy"
-        unset http_proxy
-        unset https_proxy
         
         if ! sudo apt-get install -y build-essential procps curl file git gcc; then
             log "ERROR" "Failed to install dependencies"
             # 恢复代理设置
-            export http_proxy="$old_http_proxy"
-            export https_proxy="$old_https_proxy"
             return 1
         fi
-        
-        # 恢复代理设置
-        export http_proxy="$old_http_proxy"
-        export https_proxy="$old_https_proxy"
         
         # 创建临时脚本文件并执行
         local temp_script="/tmp/install_homebrew_$USER.sh"
