@@ -11,8 +11,8 @@ EOF
 
 # 安装常用包
 echo "Installing common Python packages..."
-pip install -U pip
-pip install \
+python3 -m pip install --upgrade pip
+python3 -m pip install \
     ipython \
     pytest \
     black \

@@ -13,6 +13,11 @@ mkdir -p ~/.vim
 echo "Setting up Vim configuration..."
 cp "${SCRIPT_DIR}/vimrc" ~/.vimrc
 
+# 安装 vim-plug
+echo "Installing vim-plug..."
+curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
 # 复制 Shell 函数和别名
 echo "Setting up Shell functions and aliases..."
 mkdir -p ~/.shell/aliases
@@ -26,6 +31,20 @@ echo "source ~/.shell/aliases/kubernetes.sh" >> ~/.zshrc
 # 安装 Vim 插件
 echo "Installing Vim plugins..."
 vim +PlugInstall +qall
+
+# 检查并安装 Python
+if ! command -v python3 &> /dev/null; then
+    echo "Python3 not found. Installing Python3..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-pip
+    elif command -v brew &> /dev/null; then
+        brew install python3
+    else
+        echo "Error: Could not install Python. Please install Python3 manually."
+        exit 1
+    fi
+fi
 
 # 设置 Node.js 环境
 echo "Setting up Node.js environment..."
