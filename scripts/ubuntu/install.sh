@@ -199,6 +199,26 @@ run_as_normal_user() {
     return $?
 }
 
+# 以普通用户身份运行 brew 命令
+brew_as_user() {
+    local normal_user=$(get_normal_user)
+    if [ -z "$normal_user" ]; then
+        log "ERROR" "No normal user found to run brew command"
+        return 1
+    fi
+    
+    # 如果当前已经是目标用户，直接运行命令
+    if [ "$USER" = "$normal_user" ]; then
+        /home/linuxbrew/.linuxbrew/bin/brew "$@"
+        return $?
+    fi
+    
+    # 否则，使用 su 切换到目标用户运行命令
+    log "INFO" "Running brew command as user: $normal_user"
+    su - "$normal_user" -c "/home/linuxbrew/.linuxbrew/bin/brew $*"
+    return $?
+}
+
 # 安装 Linuxbrew
 install_linuxbrew() {
     if ! check_cmd_exists brew; then
@@ -246,7 +266,7 @@ git_with_proxy -C "$(brew --repo homebrew/core)" remote set-url origin https://m
             run_as_normal_user "$mirror_cmd"
             
             # 更新 Homebrew
-            run_as_normal_user "brew update || true"
+            run_as_normal_user "/home/linuxbrew/.linuxbrew/bin/brew update || true"
             
             log "INFO" "Linuxbrew installation completed successfully"
             return 0
@@ -288,7 +308,7 @@ fi'
             
             # 更新 Homebrew
             log "INFO" "Updating Homebrew..."
-            brew update || true
+            /home/linuxbrew/.linuxbrew/bin/brew update || true
             
             log "INFO" "Linuxbrew installation completed successfully"
             return 0
@@ -302,7 +322,7 @@ fi'
 # 安装 Homebrew 工具
 install_brew_tools() {
     # 如果 brew 命令不存在，跳过安装
-    if ! check_cmd_exists brew; then
+    if [ ! -f "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
         log "WARN" "Homebrew is not installed, skipping brew tools installation"
         return 0
     fi
@@ -314,7 +334,7 @@ install_brew_tools() {
     for tool in "${tools[@]}"; do
         if ! check_cmd_exists "$tool"; then
             log "INFO" "Installing $tool..."
-            if ! timeout $((CURL_TIMEOUT * 2)) brew install "$tool"; then
+            if ! timeout $((CURL_TIMEOUT * 2)) brew_as_user install "$tool"; then
                 log "ERROR" "Failed to install $tool"
                 failed=$((failed + 1))
             fi
