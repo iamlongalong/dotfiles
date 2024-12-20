@@ -60,6 +60,7 @@ install_homebrew() {
         export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
         export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
         export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+        export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
         
         # 使用 git clone 方式安装
         if ! git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install; then
@@ -80,6 +81,27 @@ install_homebrew() {
             log "ERROR" "Homebrew installation verification failed"
             return 1
         fi
+
+        # 配置 Homebrew 镜像源
+        log "INFO" "Configuring Homebrew mirrors..."
+        brew tap --custom-remote --force-auto-update homebrew/core https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git
+        brew tap --custom-remote --force-auto-update homebrew/cask https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-cask.git
+        brew tap --custom-remote --force-auto-update homebrew/bottles https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-bottles.git
+
+        # 添加持久化的环境变量配置
+        local mirror_config='
+# Homebrew Mirrors
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"'
+
+        # 添加镜像源配置到相关的 shell 配置文件
+        for config_file in ~/.bashrc ~/.zshrc ~/.profile; do
+            if [ -f "$config_file" ] && ! grep -q "HOMEBREW_BREW_GIT_REMOTE" "$config_file"; then
+                echo "$mirror_config" >> "$config_file"
+            fi
+        done
     else
         log "INFO" "Homebrew is already installed, skipping..."
     fi
