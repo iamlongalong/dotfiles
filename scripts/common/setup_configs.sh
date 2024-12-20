@@ -73,16 +73,16 @@ fi
 
 # 设置 Node.js 环境
 echo "Setting up Node.js environment..."
-if [ -f "./node_setup.sh" ]; then
-    bash ./node_setup.sh || handle_error "Node.js setup failed"
+if [ -f "${SCRIPT_DIR}/node_setup.sh" ]; then
+    bash ${SCRIPT_DIR}/node_setup.sh || handle_error "Node.js setup failed"
 else
     handle_error "node_setup.sh not found"
 fi
 
 # 设置 Python 环境
 echo "Setting up Python environment..."
-if [ -f "./python_setup.sh" ]; then
-    bash ./python_setup.sh || handle_error "Python setup failed"
+if [ -f "${SCRIPT_DIR}/python_setup.sh" ]; then
+    bash ${SCRIPT_DIR}/python_setup.sh || handle_error "Python setup failed"
 else
     handle_error "python_setup.sh not found"
 fi
