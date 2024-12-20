@@ -140,28 +140,22 @@ install_bt_panel() {
     
     # 安装必要的依赖
     if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
-        apt-get update -y
-        apt-get install -y wget curl
+        apt-get install -y curl
     elif [ "$OS" = "centos" ]; then
-        yum install -y wget curl
+        yum install -y curl
     fi
     
     # 下载并执行宝塔安装脚本
-    if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
-        wget -O install.sh http://download.bt.cn/install/install-ubuntu.sh
-    elif [ "$OS" = "centos" ]; then
-        wget -O install.sh http://download.bt.cn/install/install_6.0.sh
-    fi
+    curl -sSO https://download.bt.cn/install/install_panel.sh
     
     # 检查下载是否成功
-    if [ ! -f "install.sh" ]; then
+    if [ ! -f "install_panel.sh" ]; then
         log_error "下载安装脚本失败"
         exit 1
     fi
     
     # 执行安装
-    chmod +x install.sh
-    bash install.sh
+    bash install_panel.sh
     
     # 检查安装结果
     if [ ! -f "/www/server/panel/class/common.py" ]; then
@@ -175,7 +169,7 @@ install_bt_panel() {
     sleep 5
 }
 
-# 恢��函数
+# 恢复函数
 do_restore() {
     local TEMP_DIR="/tmp/btpanel_restore"
     local BACKUP_FILE="/root/btpanel_backup.tar.gz"
