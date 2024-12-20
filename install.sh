@@ -1,5 +1,14 @@
 #!/bin/bash
 
+setup_v2ray() {
+    echo "是否需要设置 V2Ray? (y/N)"
+    read -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        ./scripts/common/v2ray.sh
+    fi
+}
+
 # 设置临时代理函数
 setup_proxy() {
     local default_proxy="127.0.0.1:7890"
@@ -44,15 +53,6 @@ cleanup_proxy() {
     fi
 }
 
-# 设置临时代理（如果需要）
-setup_proxy
-
-# 确保在脚本退出时清理代理设置
-trap cleanup_proxy EXIT
-
-# 导入工具函数
-source scripts/common/utils.sh
-
 # 检测操作系统
 detect_os() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -64,6 +64,28 @@ detect_os() {
         echo "unknown"
     fi
 }
+
+
+# 设置 V2Ray （如果需要）
+OS=$(detect_os)
+log "INFO" "Detected OS: $OS"
+case $OS in
+    "macos")
+        ;;
+    "ubuntu")
+        setup_v2ray
+        ;;
+esac
+
+# 设置临时代理（如果需要）
+setup_proxy
+
+# 确保在脚本退出时清理代理设置
+trap cleanup_proxy EXIT
+
+# 导入工具函数
+source scripts/common/utils.sh
+
 
 # 主安装函数
 main() {

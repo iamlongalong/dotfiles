@@ -123,93 +123,169 @@ install_youtube_dl() {
     fi
 }
 
+# 获取普通用户名
+get_normal_user() {
+    # 获取第一个非 root 的用户，通常是主用户
+    local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
+    if [ -z "$user" ]; then
+        # 如果 who 命令没有结果，尝试从 /home 目录获取
+        user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
+    fi
+    echo "$user"
+}
+
+# 以普通用户身份运行命令
+run_as_normal_user() {
+    local cmd="$1"
+    local user=$(get_normal_user)
+    
+    if [ -z "$user" ]; then
+        log "ERROR" "No normal user found to run Linuxbrew installation"
+        return 1
+    fi
+    
+    # 如果当前已经是目标用户，直接运行命令
+    if [ "$USER" = "$user" ]; then
+        eval "$cmd"
+        return $?
+    fi
+    
+    # 否则，使用 su 切换到目标用户运行命令
+    log "INFO" "Running command as user: $user"
+    su - "$user" -c "$cmd"
+    return $?
+}
+
 # 安装 Linuxbrew
 install_linuxbrew() {
     if ! check_cmd_exists brew; then
         log "INFO" "Installing Linuxbrew..."
         
-        # 检查是否是 root 用户
+        # 如果是 root 用户，切换到普通用户安装
         if [ "$EUID" -eq 0 ]; then
-            log "ERROR" "Linuxbrew must not be run under sudo"
-            return 1
+            local normal_user=$(get_normal_user)
+            if [ -z "$normal_user" ]; then
+                log "ERROR" "No normal user found to install Linuxbrew"
+                return 1
+            fi
+            
+            # 安装依赖
+            log "INFO" "Installing Linuxbrew dependencies..."
+            apt-get install -y build-essential procps curl file git
+            
+            # 准备安装命令
+            local install_cmd='NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+            
+            # 以普通用户身份运行安装命令
+            log "INFO" "Installing Linuxbrew as user: $normal_user"
+            if ! run_as_normal_user "$install_cmd"; then
+                log "ERROR" "Failed to install Linuxbrew as user: $normal_user"
+                return 1
+            fi
+            
+            # 配置环境变量
+            local config_cmd='test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"; test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+            run_as_normal_user "$config_cmd"
+            
+            # 添加到用户的 shell 配置文件
+            local shell_config='
+if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi'
+            run_as_normal_user "echo '$shell_config' >> ~/.bashrc"
+            run_as_normal_user "echo '$shell_config' >> ~/.zshrc"
+            run_as_normal_user "echo '$shell_config' >> ~/.profile"
+            
+            # 配置国内源
+            local mirror_cmd='
+git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
+git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true'
+            run_as_normal_user "$mirror_cmd"
+            
+            # 更新 Homebrew
+            run_as_normal_user "brew update || true"
+            
+            log "INFO" "Linuxbrew installation completed successfully"
+            return 0
+        else
+            # 当前已经是普通用户，直接安装
+            # 安装依赖
+            log "INFO" "Installing Linuxbrew dependencies..."
+            sudo apt-get install -y build-essential procps curl file git
+            
+            # 下载并安装 Linuxbrew
+            NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
+                log "ERROR" "Failed to install Linuxbrew"
+                return 1
+            }
+            
+            # 检查安装结果
+            if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
+                log "ERROR" "Linuxbrew installation failed - directory not found"
+                return 1
+            fi
+            
+            # 配置环境变量
+            test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
+            test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            
+            # 添加到 shell 配置文件
+            local shell_config='
+if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi'
+            echo "$shell_config" >> ~/.bashrc
+            echo "$shell_config" >> ~/.zshrc
+            echo "$shell_config" >> ~/.profile
+            
+            # 配置国内源
+            log "INFO" "Configuring Homebrew mirrors..."
+            git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
+            git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
+            
+            # 更新 Homebrew
+            log "INFO" "Updating Homebrew..."
+            brew update || true
+            
+            log "INFO" "Linuxbrew installation completed successfully"
+            return 0
         fi
-        
-        # 安装依赖
-        log "INFO" "Installing Linuxbrew dependencies..."
-        sudo apt-get install -y build-essential procps curl file git
-        
-        # 下载并安装 Linuxbrew
-        NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        
-        # 检查安装结果
-        if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
-            log "ERROR" "Linuxbrew installation failed"
-            return 1
-        fi
-        
-        # 配置环境变量
-        test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
-        test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        
-        # 添加到 shell 配置��件
-        if [ -f ~/.zshrc ]; then
-            echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
-        fi
-        if [ -f ~/.bashrc ]; then
-            echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
-        fi
-        if [ -f ~/.profile ]; then
-            echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.profile
-        fi
-        
-        # 刷新环境变量
-        export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-        
-        # 验证安装
-        if ! check_cmd_exists brew; then
-            log "ERROR" "Linuxbrew installation verification failed"
-            return 1
-        fi
-        
-        # 配置国内源
-        log "INFO" "Configuring Homebrew mirrors..."
-        git -C "$(brew --repo)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git || true
-        git -C "$(brew --repo homebrew/core)" remote set-url origin https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git || true
-        
-        # 更新 Homebrew
-        log "INFO" "Updating Homebrew..."
-        brew update || true
     else
         log "INFO" "Linuxbrew is already installed, skipping..."
+        return 0
     fi
 }
 
 # 安装 Homebrew 工具
 install_brew_tools() {
-    # 确保 brew 命令可用
+    # 如果 brew 命令不存在，跳过安装
     if ! check_cmd_exists brew; then
-        if [ -f "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
-            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        else
-            log "ERROR" "Homebrew is not properly installed"
-            return 1
-        fi
+        log "WARN" "Homebrew is not installed, skipping brew tools installation"
+        return 0
     fi
     
-    if check_cmd_exists brew; then
-        log "INFO" "Installing additional tools with Homebrew..."
-        local tools=(lazydocker asciiquarium pyenv mkcert)
-        for tool in "${tools[@]}"; do
-            if ! check_cmd_exists "$tool"; then
-                log "INFO" "Installing $tool..."
-                if ! timeout $((CURL_TIMEOUT * 2)) brew install "$tool"; then
-                    log "ERROR" "Failed to install $tool"
-                fi
-            else
-                log "INFO" "$tool is already installed, skipping..."
+    log "INFO" "Installing additional tools with Homebrew..."
+    local tools=(lazydocker asciiquarium pyenv mkcert)
+    local failed=0
+    
+    for tool in "${tools[@]}"; do
+        if ! check_cmd_exists "$tool"; then
+            log "INFO" "Installing $tool..."
+            if ! timeout $((CURL_TIMEOUT * 2)) brew install "$tool"; then
+                log "ERROR" "Failed to install $tool"
+                failed=$((failed + 1))
             fi
-        done
+        else
+            log "INFO" "$tool is already installed, skipping..."
+        fi
+    done
+    
+    if [ $failed -gt 0 ]; then
+        log "WARN" "Failed to install $failed brew tool(s)"
+        return 1
     fi
+    
+    return 0
 }
 
 # 安装 NVM
@@ -393,8 +469,15 @@ main() {
     # 非关键组件，失败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
     install_youtube_dl || log "WARN" "Youtube-dl installation failed but continuing..."
-    install_linuxbrew || log "WARN" "Linuxbrew installation failed but continuing..."
-    install_brew_tools || log "WARN" "Some brew tools installation failed but continuing..."
+    
+    # Linuxbrew 和相关工具
+    if install_linuxbrew; then
+        install_brew_tools || log "WARN" "Some brew tools installation failed but continuing..."
+    else
+        log "WARN" "Skipping brew tools installation due to Linuxbrew installation failure"
+    fi
+    
+    # 其他非关键组件
     install_nvm || log "WARN" "NVM installation failed but continuing..."
     install_go || log "WARN" "Go installation failed but continuing..."
     setup_python || log "WARN" "Python setup failed but continuing..."
