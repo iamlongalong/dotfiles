@@ -33,9 +33,10 @@ gitcheck() {
 # 快速设置代理
 proxy() {
     local port="${1:-7890}"
-    export http_proxy="http://127.0.0.1:$port"
-    export https_proxy="http://127.0.0.1:$port"
-    echo "Proxy set to http://127.0.0.1:$port"
+    export http_proxy="socks5://127.0.0.1:$port"
+    export https_proxy="socks5://127.0.0.1:$port"
+    export all_proxy="socks5://127.0.0.1:$port"
+    echo "Proxy set to socks5://127.0.0.1:$port"
 }
 
 # 取消代理

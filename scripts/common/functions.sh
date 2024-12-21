@@ -82,7 +82,6 @@ j() {
 
 # Docker 相关函数
 dstop() { docker stop $(docker ps -a -q); }
-drm() { docker rm $(docker ps -a -q); }
 dri() { docker rmi $(docker images -q); }
 dex() { docker exec -it "$@" /bin/bash; }
 dlog() { docker logs -f "$@"; }

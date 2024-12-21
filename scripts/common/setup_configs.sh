@@ -45,18 +45,7 @@ for src in "${!CONFIG_FILES[@]}"; do
     fi
 done
 
-# 检查并安装 Python
-if ! command -v python3 &> /dev/null; then
-    echo "Python3 not found. Installing Python3..."
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get update || handle_error "Failed to update package list"
-        sudo apt-get install -y python3 python3-pip || handle_error "Failed to install Python3"
-    elif command -v brew &> /dev/null; then
-        brew install python3 || handle_error "Failed to install Python3"
-    else
-        handle_error "Could not install Python. Please install Python3 manually."
-    fi
-fi
+sudo apt-get install -y python3 python3-pip || handle_error "Failed to install Python3"
 
 # 设置 Node.js 环境
 echo "Setting up Node.js environment..."

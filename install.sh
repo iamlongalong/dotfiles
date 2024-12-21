@@ -40,7 +40,8 @@ setup_proxy() {
 
 # 清理代理设置
 cleanup_proxy() {
-    if [ -n "$http_proxy" ] || [ -n "$https_proxy" ] || [ -n "$all_proxy" ]; then
+    # Check if any of the proxy variables are set using parameter expansion with default value
+    if [ "${http_proxy:-}" ] || [ "${https_proxy:-}" ] || [ "${all_proxy:-}" ]; then
         # 清除环境变量代理
         unset http_proxy https_proxy all_proxy
         unset HTTP_PROXY HTTPS_PROXY ALL_PROXY
@@ -119,12 +120,10 @@ main() {
         "macos")
             log "INFO" "Running macOS setup..."
             ./scripts/macos/install.sh
-            ./scripts/common/setup_configs.sh
             ;;
         "ubuntu")
             log "INFO" "Running Ubuntu setup..."
             ./scripts/ubuntu/install.sh
-            ./scripts/common/setup_configs.sh
             ;;
         *)
             log "ERROR" "Unsupported operating system: $OS"
@@ -132,16 +131,19 @@ main() {
             ;;
     esac
     
-    # 安装 chezmoi
-    if ! command -v chezmoi &> /dev/null; then
-        log "INFO" "Installing chezmoi..."
-        sh -c "$(curl -fsLS get.chezmoi.io)"
-    fi
+    # # 安装 chezmoi
+    # 以后若需要，则可以把 config 全用 chezmoi 来管理
+    # if ! command -v chezmoi &> /dev/null; then
+    #     log "INFO" "Installing chezmoi..."
+    #     sh -c "$(curl -fsLS get.chezmoi.io)"
+    # fi
     
-    # 初始化 chezmoi
-    log "INFO" "Initializing chezmoi..."
-    chezmoi init
-    chezmoi apply
+    # # 初始化 chezmoi
+    # log "INFO" "Initializing chezmoi..."
+    # chezmoi init
+    # chezmoi apply
+
+    ./scripts/common/setup_configs.sh
     
     log "INFO" "Installation completed successfully!"
     log "INFO" "Please restart your terminal for changes to take effect."
