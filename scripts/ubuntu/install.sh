@@ -502,7 +502,7 @@ install_docker() {
         
         # 安�� Docker
         log "INFO" "Installing Docker using apt..."
-        if ! sudo apt install -y docker.io containerd; then
+        if ! sudo apt install -y docker.io containerd docker-compose; then
             log "ERROR" "Failed to install Docker"
             return 1
         fi
