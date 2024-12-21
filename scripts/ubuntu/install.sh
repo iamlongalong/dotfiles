@@ -232,7 +232,9 @@ export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bot
 # 安装 Homebrew
 cd /tmp
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
-/bin/bash NONINTERACTIVE=1 CI=1 brew-install/install.sh
+export NONINTERACTIVE=1
+export CI=1
+/bin/bash brew-install/install.sh
 rm -rf brew-install
 
 # 配置 Homebrew
