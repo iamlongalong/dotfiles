@@ -24,7 +24,7 @@ setup_brew_env() {
 get_brew_config() {
     local brew_prefix=${1:-$(get_brew_prefix)}
     echo "# Homebrew
-eval \"$brew_prefix/bin/brew shellenv\"
+eval \"\$($brew_prefix/bin/brew shellenv)\"
 
 # Homebrew Mirrors
 export HOMEBREW_BREW_GIT_REMOTE=\"https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git\"

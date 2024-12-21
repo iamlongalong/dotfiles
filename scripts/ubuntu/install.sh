@@ -536,7 +536,7 @@ install_docker() {
             current_user=$(get_normal_user)
         fi
         
-        # 将用户添加�� docker 组
+        # 将用户添加到 docker 组
         log "INFO" "Adding user $current_user to docker group..."
         if ! sudo usermod -aG docker "$current_user"; then
             log "ERROR" "Failed to add user to docker group"
