@@ -119,7 +119,7 @@ install_basic_tools() {
     local tools=(
         git curl wget tree jq ripgrep fd-find bat build-essential
         software-properties-common apt-transport-https ca-certificates
-        gnupg lsb-release screen vim ffmpeg proxychains4 mkcert gcc
+        gnupg lsb-release screen vim ffmpeg proxychains4 mkcert gcc python3.12-venv
     )
     
     # 设置 trap 以确保清理工作
