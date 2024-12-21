@@ -373,7 +373,7 @@ install_nvm() {
         local nvm_config='
 # NVM configuration
 export NVM_DIR="$HOME/.nvm"
-[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" --no-use  # This loads nvm
+[ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"  # This loads nvm
 [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion'
         
         for config_file in ~/.bashrc ~/.zshrc; do
@@ -384,24 +384,36 @@ export NVM_DIR="$HOME/.nvm"
         
         # 立即加载 nvm
         export NVM_DIR="$HOME/.nvm"
-        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" --no-use
+        [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/nvm.sh"
         [ -s "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/home/linuxbrew/.linuxbrew/opt/nvm/etc/bash_completion.d/nvm"
         
-        # 配置 npm 宝镜像
+        # 配置 npm 镜像
         if [ ! -f "$HOME/.npmrc" ]; then
             echo "registry=https://registry.npmmirror.com" > "$HOME/.npmrc"
         fi
         
         # 安装 Node.js LTS
         log "INFO" "Installing Node.js LTS version..."
-        if ! nvm install --lts --default; then
+        if ! nvm install --lts; then
             log "ERROR" "Failed to install Node.js LTS"
             return 1
         fi
         
-        # 使用 LTS 版本
-        if ! nvm use --lts; then
-            log "ERROR" "Failed to use Node.js LTS"
+        # 设置默认版本
+        NODE_VERSION=$(nvm current)
+        if [ -n "$NODE_VERSION" ]; then
+            if ! nvm alias default "$NODE_VERSION"; then
+                log "ERROR" "Failed to set default Node.js version"
+                return 1
+            fi
+        else
+            log "ERROR" "Failed to get current Node.js version"
+            return 1
+        fi
+        
+        # 使用当前版本
+        if ! nvm use default; then
+            log "ERROR" "Failed to use default Node.js version"
             return 1
         fi
         
@@ -488,7 +500,7 @@ install_docker() {
         sudo apt remove --purge -y docker.io docker-engine docker containerd runc || true
         sudo rm -rf /var/lib/docker /etc/docker
         
-        # 安装 Docker
+        # 安�� Docker
         log "INFO" "Installing Docker using apt..."
         if ! sudo apt install -y docker.io containerd; then
             log "ERROR" "Failed to install Docker"
@@ -689,7 +701,7 @@ disable_proxy() {
     echo "$old_http_proxy:$old_https_proxy:$old_all_proxy"
 }
 
-# 恢复代理设置
+# 恢复代��设置
 restore_proxy() {
     local old_settings="$1"
     IFS=':' read -r http https all <<< "$old_settings"

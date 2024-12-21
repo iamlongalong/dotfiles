@@ -1,5 +1,7 @@
 #!/bin/bash
 
+nvm install --lts --default
+
 # 安装 nrm
 echo "Installing nrm..."
 npm install -g nrm

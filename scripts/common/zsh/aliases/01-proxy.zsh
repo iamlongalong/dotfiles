@@ -72,22 +72,6 @@ check_proxy() {
     curl -s ip.gs
 }
 
-# proxyterm 命令 - 打开一个新的带代理的终端
-proxyterm() {
-    # 在新终端中设置代理并运行 zsh
-    if [[ "$(uname)" == "Darwin" ]]; then
-        # macOS
-        osascript -e "tell application \"Terminal\" to do script \"source ~/.zshrc && set_proxy && echo 'Terminal started with proxy settings' && zsh\""
-    else
-        # Linux (Ubuntu)
-        if command -v gnome-terminal &> /dev/null; then
-            gnome-terminal -- zsh -c "source ~/.zshrc && set_proxy && echo 'Terminal started with proxy settings' && zsh"
-        else
-            echo "Unsupported terminal. Please install gnome-terminal or modify this script for your terminal."
-        fi
-    fi
-}
-
 # proxychains 别名和函数 (仅在 Linux 上)
 if [[ "$(uname)" == "Linux" ]]; then
     if command -v proxychains4 &> /dev/null; then
@@ -100,7 +84,6 @@ if [[ "$(uname)" == "Linux" ]]; then
 fi
 
 # 快捷命令
-alias proxy='set_proxy'
 alias unproxy='unset_proxy'
 alias checkproxy='check_proxy'
 
