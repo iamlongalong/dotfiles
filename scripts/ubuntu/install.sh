@@ -38,7 +38,7 @@ get_normal_user() {
     # 获取第一个非 root 的用户常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
-        # 如果 who 命令没有结果，尝试从 /home 目录获取
+        # 如果 who 命令没有结��，尝试从 /home 目录获取
         user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
     echo "$user"
@@ -232,7 +232,7 @@ export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bot
 # 安装 Homebrew
 cd /tmp
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
-/bin/bash brew-install/install.sh
+/bin/bash NONINTERACTIVE=1 CI=1 brew-install/install.sh
 rm -rf brew-install
 
 # 配置 Homebrew
@@ -392,7 +392,7 @@ export NVM_DIR="$HOME/.nvm"
         
         # 安装 Node.js LTS
         log "INFO" "Installing Node.js LTS version..."
-        if ! nvm install --lts; then
+        if ! nvm install --lts --default; then
             log "ERROR" "Failed to install Node.js LTS"
             return 1
         fi
@@ -642,10 +642,11 @@ setup_git() {
 setup_mkcert() {
     if check_cmd_exists mkcert; then
         log "INFO" "Setting up mkcert..."
-        if ! "${SCRIPT_DIR}/../common/setup_mkcert.sh"; then
-            log "ERROR" "Failed to setup mkcert"
-            return 1
-        fi
+        
+        # Create required directories first
+        mkdir -p "$HOME/.local/share/mkcert"
+        mkdir -p "$HOME/.cert"
+        mkcert -install
     fi
 }
 
@@ -703,7 +704,8 @@ main() {
     setup_hostname || log "ERROR" "Hostname setup failed but continuing..."
     # update_system || { log "ERROR" "System update failed, installation may be incomplete"; }
     install_basic_tools || log "ERROR" "Some basic tools installation failed but continuing..."
-    
+    install_zsh || log "ERROR" "Zsh installation failed"
+
     # 非关键组件，失败可以继续
     setup_proxychains || log "WARN" "Proxychains setup failed but continuing..."
     
@@ -719,8 +721,7 @@ main() {
     install_go || log "WARN" "Go installation failed but continuing..."
     setup_python || log "WARN" "Python setup failed but continuing..."
     install_docker || log "WARN" "Docker installation failed but continuing..."
-    install_vscode || log "WARN" "VS Code installation failed but continuing..."
-    install_zsh || log "WARN" "Zsh installation failed but continuing..."
+    # install_vscode || log "WARN" "VS Code installation failed but continuing..."
     setup_git || log "WARN" "Git setup failed but continuing..."
     setup_mkcert || log "WARN" "mkcert setup failed but continuing..."
     

@@ -30,13 +30,13 @@ ZSH_CUSTOM=${ZSH_CUSTOM:-~/.oh-my-zsh/custom}
 # zsh-autosuggestions
 if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
     echo "Installing zsh-autosuggestions..."
-    git clone https://mirrors.tuna.tsinghua.edu.cn/git/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
+    git clone https://mirrors.tuna.tsinghua.edu.cn/git/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
 fi
 
 # zsh-syntax-highlighting
 if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     echo "Installing zsh-syntax-highlighting..."
-    git clone https://mirrors.tuna.tsinghua.edu.cn/git/zsh-syntax-highlighting ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
+    git clone https://mirrors.tuna.tsinghua.edu.cn/git/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
 fi
 
 echo "Zsh configuration completed!" 

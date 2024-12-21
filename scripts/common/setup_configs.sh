@@ -16,7 +16,6 @@ CONFIG_DIRS=(
 
 # 定义配置文件映射
 declare -A CONFIG_FILES=(
-    ["${SCRIPT_DIR}/vimrc"]="$HOME/.vimrc"
     ["${SCRIPT_DIR}/functions.sh"]="$HOME/.config/zsh/functions/common.zsh"
     ["${SCRIPT_DIR}/functions_extra.sh"]="$HOME/.config/zsh/functions/extra.zsh"
     ["${SCRIPT_DIR}/aliases/kubernetes.sh"]="$HOME/.config/zsh/aliases/kubernetes.zsh"
@@ -45,18 +44,6 @@ for src in "${!CONFIG_FILES[@]}"; do
         echo "Warning: Source file not found: $src"
     fi
 done
-
-# 安装 vim-plug
-echo "Installing vim-plug..."
-if [ ! -f ~/.vim/autoload/plug.vim ]; then
-    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
-        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim || \
-        handle_error "Failed to install vim-plug"
-fi
-
-# 安装 Vim 插件
-echo "Installing Vim plugins..."
-vim +PlugInstall +qall || handle_error "Failed to install Vim plugins"
 
 # 检查并安装 Python
 if ! command -v python3 &> /dev/null; then

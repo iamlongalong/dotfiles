@@ -48,8 +48,6 @@ chmod +x install.sh
 # 设置 ZSH 环境（必需）
 ./scripts/common/setup_zsh.sh
 
-# 设置 Vim 环境（如果需要）
-cp scripts/common/vimrc ~/.vimrc
 ```
 
 5. 重新打开终端以使所有配置生效
@@ -112,7 +110,6 @@ checkproxy                # 检查代理状态
 ### 配置文件位置
 - Git 配置: `~/.gitconfig`
 - Zsh 配置: `~/.zshrc` 和 `~/.config/zsh/`
-- Vim 配置: `~/.vimrc`
 - V2Ray 配置: `~/.config/v2ray/config.json`
 - NVM 配置: `~/.nvm/`
 
@@ -132,7 +129,6 @@ checkproxy                # 检查代理状态
 │       ├── utils.sh    # 工具函数
 │       ├── v2ray.sh    # V2Ray 安装脚本
 │       ├── gitconfig   # Git 默认配置
-│       ├── vimrc       # Vim 默认配置
 │       ├── functions.sh     # 基础函数
 │       └── functions_extra.sh # 扩展函数
 └── README.md           # 文档

@@ -24,8 +24,6 @@ uninstall() {
     local configs=(
         ~/.zshrc
         ~/.gitconfig
-        ~/.vimrc
-        ~/.tmux.conf
         ~/.config/zsh
     )
     
@@ -38,7 +36,7 @@ uninstall() {
     
     # 移除配置文件
     log "INFO" "Removing configuration files..."
-    rm -f ~/.zshrc ~/.gitconfig ~/.vimrc ~/.tmux.conf
+    rm -f ~/.zshrc ~/.gitconfig
     rm -rf ~/.config/zsh
     
     # 清理 Homebrew 包（如果存在）
