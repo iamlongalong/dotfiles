@@ -28,48 +28,32 @@ mkdir -p "${LOG_DIR}"
 log() {
     local level=$1
     local message=$2
-    local color=""
-    local level_name=""
+    local level_map=(
+        ["DEBUG"]="$LOG_LEVEL_DEBUG:$COLOR_DEBUG"
+        ["INFO"]="$LOG_LEVEL_INFO:$COLOR_INFO"
+        ["WARN"]="$LOG_LEVEL_WARN:$COLOR_WARN"
+        ["ERROR"]="$LOG_LEVEL_ERROR:$COLOR_ERROR"
+    )
     
-    case $level in
-        "DEBUG")
-            [ $CURRENT_LOG_LEVEL -gt $LOG_LEVEL_DEBUG ] && return
-            color=$COLOR_DEBUG
-            level_name="DEBUG"
-            ;;
-        "INFO")
-            [ $CURRENT_LOG_LEVEL -gt $LOG_LEVEL_INFO ] && return
-            color=$COLOR_INFO
-            level_name="INFO"
-            ;;
-        "WARN")
-            [ $CURRENT_LOG_LEVEL -gt $LOG_LEVEL_WARN ] && return
-            color=$COLOR_WARN
-            level_name="WARN"
-            ;;
-        "ERROR")
-            [ $CURRENT_LOG_LEVEL -gt $LOG_LEVEL_ERROR ] && return
-            color=$COLOR_ERROR
-            level_name="ERROR"
-            ;;
-        *)
-            return
-            ;;
-    esac
+    local level_info=${level_map[$level]}
+    [ -z "$level_info" ] && return
     
-    # 获取时间戳
+    local level_num=${level_info%:*}
+    local color=${level_info#*:}
+    
+    [ $CURRENT_LOG_LEVEL -gt $level_num ] && return
+    
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local log_entry="[${timestamp}] [${level}] ${message}"
     
     # 输出到终端
-    echo -e "${color}[${timestamp}] [${level_name}] ${message}${COLOR_RESET}"
+    echo -e "${color}${log_entry}${COLOR_RESET}"
     
     # 写入日志文件
-    echo "[${timestamp}] [${level_name}] ${message}" >> "${INSTALL_LOG}"
+    echo "${log_entry}" >> "${INSTALL_LOG}"
     
-    # 错误日志也写入错误日志文件
-    if [[ "$level" == "ERROR" ]]; then
-        echo "[${timestamp}] ${message}" >> "${ERROR_LOG}"
-    fi
+    # 错误日志单独写入
+    [[ "$level" == "ERROR" ]] && echo "${log_entry}" >> "${ERROR_LOG}"
 }
 
 # 错误处理函数
@@ -118,28 +102,37 @@ has_sudo() {
 check_system_resources() {
     log "INFO" "Checking system resources..."
     
-    # 检查磁盘空间
-    local required_space=5  # GB
-    local available_space
-    if [ "$(get_os_type)" = "Darwin" ]; then
-        available_space=$(df -g / | awk 'NR==2 {print $4}')
-    else
-        available_space=$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')
-    fi
+    local os_type=$(get_os_type)
     
+    # 获取可用磁盘空间
+    get_available_space() {
+        if [ "$os_type" = "Darwin" ]; then
+            df -g / | awk 'NR==2 {print $4}'
+        else
+            df -BG / | awk 'NR==2 {print $4}' | tr -d 'G'
+        fi
+    }
+    
+    # 获取可用内存
+    get_available_memory() {
+        if [ "$os_type" = "Darwin" ]; then
+            vm_stat | awk '/free/ {gsub(/\./, "", $3); print int($3)*4096/1024/1024/1024}'
+        else
+            free -g | awk 'NR==2 {print $7}'
+        fi
+    }
+    
+    local required_space=5
+    local available_space=$(get_available_space)
+    local available_mem=$(get_available_memory)
+    
+    # 检查磁盘空间
     if [ "$available_space" -lt "$required_space" ]; then
         log "ERROR" "Insufficient disk space. Required: ${required_space}GB, Available: ${available_space}GB"
         return 1
     fi
     
     # 检查内存
-    local available_mem
-    if [ "$(get_os_type)" = "Darwin" ]; then
-        available_mem=$(vm_stat | awk '/free/ {gsub(/\./, "", $3); print int($3)*4096/1024/1024/1024}')
-    else
-        available_mem=$(free -g | awk 'NR==2 {print $7}')
-    fi
-    
     if [ "$available_mem" -lt 2 ]; then
         log "WARN" "Low memory available: ${available_mem}GB"
     fi
@@ -151,32 +144,40 @@ check_system_resources() {
 # 检查网络连接
 check_network() {
     log "INFO" "Checking network connectivity..."
-    local urls=(
-        "https://github.com"
-        "https://registry.npmjs.org"
-        "https://pypi.org"
+    
+    check_url() {
+        local url=$1
+        local timeout=5
+        curl --silent --head --fail --max-time "$timeout" "$url" &>/dev/null
+    }
+    
+    local -A urls=(
+        ["GitHub"]="https://github.com"
+        ["NPM"]="https://registry.npmjs.org"
+        ["PyPI"]="https://pypi.org"
     )
     
     local failed=0
-    for url in "${urls[@]}"; do
-        if ! curl --silent --head --fail "$url" &>/dev/null; then
-            log "WARN" "Cannot access $url"
+    local total=${#urls[@]}
+    local results=()
+    
+    for name in "${!urls[@]}"; do
+        if ! check_url "${urls[$name]}"; then
             failed=$((failed + 1))
+            results+=("$name: ❌")
+            log "WARN" "Cannot access $name (${urls[$name]})"
+        else
+            results+=("$name: ✓")
         fi
     done
     
-    if [ $failed -eq ${#urls[@]} ]; then
+    if [ $failed -eq $total ]; then
         log "ERROR" "No network connectivity to required services"
         return 1
     fi
     
-    if [ $failed -gt 0 ]; then
-        log "WARN" "Some services are not accessible"
-    else
-        log "INFO" "Network connectivity check passed"
-    fi
-    
-    return 0
+    log "INFO" "Network check results: ${results[*]}"
+    return $(( failed > 0 ))
 }
 
 # 检查依赖
@@ -253,3 +254,44 @@ export -f set_log_level
 set -e  # 遇到错误立即退出
 set -u  # 使用未定义的变量时报错
 trap 'handle_error $LINENO' ERR
+
+# 添加版本控制函数
+version_compare() {
+    local v1=$1
+    local v2=$2
+    
+    # 规范化版本号
+    local norm_v1=$(echo "$v1" | sed 's/[^0-9.]/./g' | tr -s '.')
+    local norm_v2=$(echo "$v2" | sed 's/[^0-9.]/./g' | tr -s '.')
+    
+    if [ "$norm_v1" = "$norm_v2" ]; then
+        echo "="
+    else
+        local IFS=.
+        local i v1_array=($norm_v1) v2_array=($norm_v2)
+        for ((i=0; i<${#v1_array[@]} || i<${#v2_array[@]}; i++)); do
+            local v1_part=${v1_array[i]:-0}
+            local v2_part=${v2_array[i]:-0}
+            if ((v1_part > v2_part)); then
+                echo ">"
+                return
+            elif ((v1_part < v2_part)); then
+                echo "<"
+                return
+            fi
+        done
+    fi
+}
+
+# 添加清理日志函数
+cleanup_logs() {
+    local max_days=${1:-30}  # 默认保留30天的日志
+    local log_files=("$INSTALL_LOG" "$ERROR_LOG")
+    
+    for log_file in "${log_files[@]}"; do
+        if [ -f "$log_file" ]; then
+            find "$(dirname "$log_file")" -name "$(basename "$log_file")*" -mtime +"$max_days" -delete
+            log "INFO" "Cleaned up logs older than $max_days days from $log_file"
+        fi
+    done
+}
