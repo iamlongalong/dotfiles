@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 导入工具函数
+source scripts/common/utils.sh
+
 setup_v2ray() {
     echo "是否需要设置 V2Ray? (y/N)"
     read -n 1 -r
@@ -83,10 +86,6 @@ setup_proxy
 
 # 确保在脚本退出时清理代理设置
 trap cleanup_proxy EXIT
-
-# 导入工具函数
-source scripts/common/utils.sh
-
 
 # 主安装函数
 main() {

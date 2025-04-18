@@ -28,18 +28,32 @@ mkdir -p "${LOG_DIR}"
 log() {
     local level=$1
     local message=$2
-    local level_map=(
-        ["DEBUG"]="$LOG_LEVEL_DEBUG:$COLOR_DEBUG"
-        ["INFO"]="$LOG_LEVEL_INFO:$COLOR_INFO"
-        ["WARN"]="$LOG_LEVEL_WARN:$COLOR_WARN"
-        ["ERROR"]="$LOG_LEVEL_ERROR:$COLOR_ERROR"
-    )
     
-    local level_info=${level_map[$level]}
-    [ -z "$level_info" ] && return
+    # 使用 case 语句替代关联数组
+    local level_num
+    local color
     
-    local level_num=${level_info%:*}
-    local color=${level_info#*:}
+    case "$level" in
+        "DEBUG")
+            level_num=$LOG_LEVEL_DEBUG
+            color=$COLOR_DEBUG
+            ;;
+        "INFO")
+            level_num=$LOG_LEVEL_INFO
+            color=$COLOR_INFO
+            ;;
+        "WARN")
+            level_num=$LOG_LEVEL_WARN
+            color=$COLOR_WARN
+            ;;
+        "ERROR")
+            level_num=$LOG_LEVEL_ERROR
+            color=$COLOR_ERROR
+            ;;
+        *)
+            return
+            ;;
+    esac
     
     [ $CURRENT_LOG_LEVEL -gt $level_num ] && return
     
