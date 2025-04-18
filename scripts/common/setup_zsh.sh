@@ -3,7 +3,7 @@
 echo "Setting up Zsh configuration..."
 
 # 创建配置目录
-mkdir -p ~/.config/zsh/{exports,aliases,functions,paths,completions}
+mkdir -p ~/.config/zsh/{exports,aliases,functions,themes,paths,completions}
 
 # 复制配置文件
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
