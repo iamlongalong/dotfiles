@@ -41,6 +41,13 @@ get_normal_user() {
         # 如果 who 命令没有结果，尝试从 /home 目录获取
         user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
+
+    if [ -z "$user" ]; then
+        # create user of linuxbrew
+        user="linuxbrew"
+        adduser --disabled-password --gecos '' "$user"
+    fi
+    
     echo "$user"
 }
 
