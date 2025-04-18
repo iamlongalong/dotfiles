@@ -26,14 +26,14 @@ mkdir -p "${LOG_DIR}"
 
 # 日志函数
 log() {
-    local level=$1
-    local message=$2
+    local level="$1"  # 添加引号确保变量值被正确保留
+    local message="$2"
     
     # 使用 case 语句替代关联数组
     local level_num
     local color
     
-    case "$level" in
+    case "${level}" in  # 使用 ${} 和引号包裹变量
         "DEBUG")
             level_num=$LOG_LEVEL_DEBUG
             color=$COLOR_DEBUG
@@ -66,8 +66,10 @@ log() {
     # 写入日志文件
     echo "${log_entry}" >> "${INSTALL_LOG}"
     
-    # 错误日志单独写入
-    [[ "$level" == "ERROR" ]] && echo "${log_entry}" >> "${ERROR_LOG}"
+    # 错误日志单独写入 - 使用更明确的字符串比较
+    if [ "${level}" = "ERROR" ]; then
+        echo "${log_entry}" >> "${ERROR_LOG}"
+    fi
 }
 
 # 错误处理函数
