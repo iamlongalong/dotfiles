@@ -528,18 +528,13 @@ install_docker() {
         sudo rm -rf /var/lib/docker /etc/docker
         
         # 安装 Docker
-        log "INFO" "Installing Docker using apt..."
-        if ! sudo apt install -y docker.io containerd docker-compose; then
-            log "ERROR" "Failed to install Docker"
-            return 1
-        fi
-        
-        # 检查安装结果
-        log "INFO" "Verifying Docker installation..."
-        if ! dpkg -l | grep -q docker.io; then
-            log "ERROR" "Docker package not found after installation"
-            return 1
-        fi
+        log "INFO" "Installing Docker using curl..."
+        # if ! sudo apt install -y docker.io containerd docker-compose; then
+        #     log "ERROR" "Failed to install Docker"
+        #     return 1
+        # fi
+
+        curl -sSL https://get.docker.com/ | CHANNEL=stable sh
         
         # 启动 Docker 服务前检查系统状态
         log "INFO" "Checking system status before starting Docker..."
