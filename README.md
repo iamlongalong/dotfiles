@@ -36,6 +36,7 @@ cd dotfiles
 chmod +x install.sh
 ./install.sh
 ```
+> 如果是新开的服务器，记得使用 `apt-get update` 更新软件包
 
 3. 根据提示进行配置：
    - 设置主机名（可选）

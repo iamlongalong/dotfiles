@@ -38,7 +38,7 @@ get_normal_user() {
     # 获取第一个非 root 的用户常是主用户
     local user=$(who | grep -v root | head -n 1 | awk '{print $1}')
     if [ -z "$user" ]; then
-        # 如果 who 命令没有结��，尝试从 /home 目录获取
+        # 如果 who 命令没有结果，尝试从 /home 目录获取
         user=$(ls -ld /home/* | grep -v root | head -n 1 | awk '{print $3}')
     fi
     echo "$user"
@@ -116,10 +116,16 @@ update_system() {
 # 安装基础工具
 install_basic_tools() {
     log "INFO" "Installing basic tools..."
+    
+    # 添加 deadsnakes PPA 用于安装 Python 3.12
+    log "INFO" "Adding deadsnakes PPA for Python 3.12..."
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+    sudo apt update
+    
     local tools=(
         git curl wget tree jq ripgrep fd-find bat build-essential
         software-properties-common apt-transport-https ca-certificates
-        gnupg lsb-release screen vim ffmpeg proxychains4 mkcert gcc python3.12-venv
+        gnupg lsb-release screen vim ffmpeg proxychains4 mkcert gcc python3.12-venv python3.12 python3.12-dev
     )
     
     # 设置 trap 以确保清理工作
@@ -500,7 +506,7 @@ install_docker() {
         sudo apt remove --purge -y docker.io docker-engine docker containerd runc || true
         sudo rm -rf /var/lib/docker /etc/docker
         
-        # 安�� Docker
+        # 安装 Docker
         log "INFO" "Installing Docker using apt..."
         if ! sudo apt install -y docker.io containerd docker-compose; then
             log "ERROR" "Failed to install Docker"
@@ -701,7 +707,7 @@ disable_proxy() {
     echo "$old_http_proxy:$old_https_proxy:$old_all_proxy"
 }
 
-# 恢复代��设置
+# 恢复代理设置
 restore_proxy() {
     local old_settings="$1"
     IFS=':' read -r http https all <<< "$old_settings"
