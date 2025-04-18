@@ -45,7 +45,7 @@ get_normal_user() {
     if [ -z "$user" ]; then
         # create user of linuxbrew
         user="linuxbrew"
-        adduser --disabled-password --gecos '' "$user"
+        adduser --disabled-password --gecos '' "$user" > /dev/null 2>&1
     fi
     
     echo "$user"
