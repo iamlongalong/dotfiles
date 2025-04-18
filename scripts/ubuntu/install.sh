@@ -446,7 +446,7 @@ export NVM_DIR="$HOME/.nvm"
 }
 
 # 安装 Go
-install_go() {
+_install_go() {
     if ! check_cmd_exists go; then
         log "INFO" "Installing Go..."
         local go_file="go1.21.5.linux-amd64.tar.gz"
@@ -475,6 +475,20 @@ install_go() {
     else
         log "INFO" "Go is already installed, skipping..."
     fi
+}
+
+install_go() {
+    local retry_count=0
+    while [ $retry_count -lt 3 ]; do
+        log "INFO" "Retrying Go installation... (attempt $retry_count)"
+        _install_go
+        if [ $? -eq 0 ]; then
+            return 0
+        fi
+        retry_count=$((retry_count + 1))
+    done
+    log "ERROR" "Failed to install Go after 3 attempts"
+    return 1
 }
 
 # 配置 Python 环境
