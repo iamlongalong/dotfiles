@@ -151,7 +151,7 @@ main() {
     install_v2ray
 
     local encoded_string=""
-    if [ -n "${V2RAY_LINK}" ]; then
+    if [ -n "$V2RAY_LINK" ]; then
         encoded_string="${V2RAY_LINK}"
     else
         read -p "请输入 Base64 编码的连接串: " encoded_string

@@ -709,12 +709,12 @@ setup_git() {
     # set git user name and email
     local git_user_name=""
     local git_user_email=""
-    if [ -n "${GIT_USER_NAME}" ]; then
+    if [ -n "$GIT_USER_NAME" ]; then
         git_user_name="${GIT_USER_NAME}"
     else
         read -p "Enter your Git user name(empty to skip): " git_user_name
     fi
-    if [ -n "${GIT_USER_EMAIL}" ]; then
+    if [ -n "$GIT_USER_EMAIL" ]; then
         git_user_email="${GIT_USER_EMAIL}"
     else
         read -p "Enter your Git email(empty to skip): " git_user_email
