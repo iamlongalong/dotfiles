@@ -39,7 +39,7 @@ chmod +x install.sh
 
 可以设置跳过一些设置：
 ```bash
-SKIP_HOSTNAME=1 SKIP_PROXY=1 SKIP_GIT=1 ./install.sh
+SKIP_HOSTNAME=1 SKIP_PROXY=1 SKIP_GIT=1 SKIP_V2RAY=1 ./install.sh
 ```
 或者提前设置需要的参数：
 ```bash

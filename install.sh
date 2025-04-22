@@ -4,6 +4,11 @@
 source scripts/common/utils.sh
 
 setup_v2ray() {
+    if [ "${SKIP_V2RAY}" = "1" ]; then
+        log "INFO" "Skipping V2Ray setup as SKIP_V2RAY is set"
+        return 0
+    fi
+
     echo "是否需要设置 V2Ray? (y/N)"
     read -n 1 -r
     echo
