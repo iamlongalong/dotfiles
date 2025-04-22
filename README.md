@@ -36,7 +36,20 @@ cd dotfiles
 chmod +x install.sh
 ./install.sh
 ```
-> 如果是新开的服务器，记得使用 `apt-get update` 更新软件包
+
+可以设置跳过一些设置：
+```bash
+SKIP_HOSTNAME=1 SKIP_PROXY=1 SKIP_GIT=1 ./install.sh
+```
+或者提前设置需要的参数：
+```bash
+export NEW_HOSTNAME=your_hostname
+export PROXY_ADDR=127.0.0.1:7890
+export V2RAY_LINK=your_v2ray_link
+export GIT_USER_NAME=your_name
+export GIT_USER_EMAIL=your_email
+./install.sh
+```
 
 3. 根据提示进行配置：
    - 设置主机名（可选）

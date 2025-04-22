@@ -79,18 +79,34 @@ run_as_normal_user() {
 
 # 配置主机名
 setup_hostname() {
+    # Skip hostname setup if SKIP_HOSTNAME is set
+    if [ "${SKIP_HOSTNAME}" = "1" ]; then
+        log "INFO" "Skipping hostname setup as SKIP_HOSTNAME is set"
+        return 0
+    fi
+
     echo "Current hostname: $(hostname)"
-    read -p "Do you want to change hostname? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        read -p "Enter new hostname: " hostname
-        if [ -n "$hostname" ]; then
-            echo "$hostname" | sudo tee /etc/hostname
-            sudo sed -i "s/127.0.1.1.*/127.0.1.1\t$hostname/g" /etc/hosts
-            sudo hostnamectl set-hostname "$hostname"
-            log "INFO" "Hostname has been updated to: $hostname"
-            log "INFO" "Please reboot for changes to take full effect."
+
+    local new_hostname=""
+    # If NEW_HOSTNAME is set, use it directly
+    if [ -n "${NEW_HOSTNAME}" ]; then
+        new_hostname="${NEW_HOSTNAME}"
+    else
+        # Otherwise prompt user interactively
+        read -p "Do you want to change hostname? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            read -p "Enter new hostname: " new_hostname
         fi
+    fi
+
+    # Apply hostname change if we have a new hostname
+    if [ -n "$new_hostname" ]; then
+        echo "$new_hostname" | sudo tee /etc/hostname
+        sudo sed -i "s/127.0.1.1.*/127.0.1.1\t$new_hostname/g" /etc/hosts
+        sudo hostnamectl set-hostname "$new_hostname"
+        log "INFO" "Hostname has been updated to: $new_hostname"
+        log "INFO" "Please reboot for changes to take full effect."
     fi
 }
 
@@ -684,9 +700,26 @@ install_zsh() {
 setup_git() {
     log "INFO" "Configuring Git..."
     cp "${SCRIPT_DIR}/../common/gitconfig" ~/.gitconfig
+
+    if [ "${SKIP_GIT}" = "1" ]; then
+        log "INFO" "Skipping Git setup as SKIP_GIT is set"
+        return 0
+    fi
+
     # set git user name and email
-    read -p "Enter your Git user name(empty to skip): " git_user_name
-    read -p "Enter your Git email(empty to skip): " git_user_email
+    local git_user_name=""
+    local git_user_email=""
+    if [ -n "${GIT_USER_NAME}" ]; then
+        git_user_name="${GIT_USER_NAME}"
+    else
+        read -p "Enter your Git user name(empty to skip): " git_user_name
+    fi
+    if [ -n "${GIT_USER_EMAIL}" ]; then
+        git_user_email="${GIT_USER_EMAIL}"
+    else
+        read -p "Enter your Git email(empty to skip): " git_user_email
+    fi
+
     if [ -n "$git_user_name" ] && [ -n "$git_user_email" ]; then
         git config --global user.name "$git_user_name"
         git config --global user.email "$git_user_email"

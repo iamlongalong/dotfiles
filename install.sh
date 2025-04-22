@@ -15,7 +15,15 @@ setup_v2ray() {
 # 设置临时代理函数
 setup_proxy() {
     local default_proxy="127.0.0.1:7890"
-    
+    if [ -n "${PROXY_ADDR}" ]; then
+        default_proxy="${PROXY_ADDR}"
+    fi
+
+    if [ "${SKIP_PROXY}" = "1" ]; then
+        log "INFO" "Skipping proxy setup as SKIP_PROXY is set"
+        return 0
+    fi
+
     echo "是否需要设置临时代理? (y/N)"
     read -n 1 -r
     echo
