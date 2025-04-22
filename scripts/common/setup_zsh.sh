@@ -19,7 +19,8 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
     cd /tmp
     git clone https://mirrors.tuna.tsinghua.edu.cn/git/ohmyzsh.git
     cd ohmyzsh/tools
-    REMOTE=https://mirrors.tuna.tsinghua.edu.cn/git/ohmyzsh.git sh install.sh
+    # 使用环境变量跳过交互式提示
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes REMOTE=https://mirrors.tuna.tsinghua.edu.cn/git/ohmyzsh.git sh install.sh
     cd -
     rm -rf /tmp/ohmyzsh
 fi
