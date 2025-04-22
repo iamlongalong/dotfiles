@@ -268,7 +268,7 @@ export -f set_log_level
 
 # 设置错误处理
 set -e  # 遇到错误立即退出
-set -u  # 使用未定义的变量时报错
+# set -u  # 使用未定义的变量时报错
 trap 'handle_error $LINENO' ERR
 
 # 添加版本控制函数
