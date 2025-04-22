@@ -3,6 +3,8 @@
 # 设置默认的虚拟环境路径
 DEFAULT_VENV_PATH="$HOME/.python_env"
 
+apt-get install -y python3.10-venv
+
 # 检查是否已存在虚拟环境
 if [ -d "$DEFAULT_VENV_PATH" ]; then
     echo "Virtual environment already exists at $DEFAULT_VENV_PATH"

@@ -567,14 +567,14 @@ install_docker() {
         
         # 启动 Docker 服务前检查系统状态
         log "INFO" "Checking system status before starting Docker..."
-        sudo systemctl status containerd || true
+        sudo systemctl status --no-pager containerd || true
         
         # 启动 Docker 服务，增加详细日志
         log "INFO" "Starting Docker service..."
         if ! sudo systemctl start docker; then
             log "ERROR" "Failed to start Docker service"
             log "INFO" "Checking Docker service status..."
-            sudo systemctl status docker || true
+            sudo systemctl status --no-pager docker || true
             log "INFO" "Checking Docker logs..."
             sudo journalctl -u docker --no-pager -n 50 || true
             return 1
@@ -584,7 +584,7 @@ install_docker() {
         log "INFO" "Verifying Docker service..."
         if ! sudo docker info >/dev/null 2>&1; then
             log "ERROR" "Docker service is not responding"
-            sudo systemctl status docker || true
+            sudo systemctl status --no-pager docker || true
             return 1
         fi
         
@@ -619,7 +619,7 @@ install_docker() {
             log "WARN" "Docker service is not running, attempting to start..."
             if ! sudo systemctl start docker; then
                 log "ERROR" "Failed to start existing Docker service"
-                sudo systemctl status docker || true
+                sudo systemctl status --no-pager docker || true
                 return 1
             fi
         fi
